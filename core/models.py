@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
+from simple_history.models import HistoricalRecords
 
 
 class User(AbstractUser):
@@ -85,6 +86,7 @@ class Model(models.Model):
     def __str__(self):
         return self.name
 
+
 class Car(models.Model):
     # Объявления о продаже автомобилей
     STATUS_CHOICES = (
@@ -155,6 +157,7 @@ class Car(models.Model):
         related_name='created_cars',
         verbose_name=_('Кем создано')
     )
+    history = HistoricalRecords()
 
     class Meta:
         verbose_name = _('Объявление об автомобиле')
@@ -163,6 +166,7 @@ class Car(models.Model):
 
     def __str__(self):
         return f'{self.model} ({self.year}) - {self.price} ₽'
+
 
 class CarPhoto(models.Model):
     # Фотографии автомобиля

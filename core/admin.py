@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from .models import User, Brand, Model, Car, CarPhoto, Favorite, ForumPost
+from import_export.admin import ImportExportModelAdmin
+from .resources import CarResource  # ← Импорт ресурса для экспорта в Excel
 
 
 class CarPhotoInline(admin.TabularInline):
@@ -37,7 +39,9 @@ class ModelAdmin(admin.ModelAdmin):
 
 
 @admin.register(Car)
-class CarAdmin(admin.ModelAdmin):
+class CarAdmin(ImportExportModelAdmin):  # ← Наследуем от ImportExportModelAdmin
+    resource_class = CarResource  # ← Подключаем ресурс для экспорта
+
     list_display = ('id', 'full_name', 'year', 'price_formatted', 'status', 'views', 'created_at')
     list_filter = ('status', 'brand', 'year', 'created_at')
     search_fields = ('description', 'brand__name', 'model__name')

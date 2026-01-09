@@ -1,0 +1,21 @@
+[flake8]
+max-line-length = 99
+exclude =
+    migrations,
+    venv,
+    .venv,
+    env,
+    staticfiles,
+    __pycache__,
+    .git,
+    .github,
+    Lib/site-packages
+ignore =
+    E501,
+    E203,
+    W503,
+    W504,
+    E712,
+per-file-ignores =
+    __init__.py:F401
+    */migrations/*:E501

@@ -1,0 +1,14 @@
+asgiref==3.11.0
+diff-match-patch==20241021
+Django==6.0.1
+django-filter==25.2
+django-import-export==4.3.14
+django-simple-history==3.11.0
+djangorestframework==3.16.1
+flake8==7.3.0
+mccabe==0.7.0
+pycodestyle==2.14.0
+pyflakes==3.4.0
+sqlparse==0.5.5
+tablib==3.9.0
+tzdata==2025.3

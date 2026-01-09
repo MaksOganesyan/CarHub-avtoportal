@@ -21,7 +21,8 @@ class CarDetailView(DetailView):
         context['photos'] = self.object.photos.all()
         return context
 
-#!CRUD
+
+# CRUD
 class CarCreateView(LoginRequiredMixin, CreateView):
     model = Car
     template_name = 'core/car_form.html'
