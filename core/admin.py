@@ -1,9 +1,13 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
+from django.http import HttpResponse
 from .models import User, Brand, Model, Car, CarPhoto, Favorite, ForumPost
 from import_export.admin import ImportExportModelAdmin
-from .resources import CarResource  # ← Импорт ресурса для экспорта в Excel
+from .resources import CarResource
+from import_export.formats import base_formats
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment
 
 
 class CarPhotoInline(admin.TabularInline):
@@ -51,6 +55,55 @@ class CarAdmin(ImportExportModelAdmin):
     raw_id_fields = ('user', 'created_by')
     list_display_links = ('id', 'full_name')
 
+    def get_export_formats(self):
+        return [
+            base_formats.XLSX,
+            base_formats.CSV,
+            base_formats.JSON,
+        ]
+
+    def export_admin_action(self, request, queryset):
+        resource = self.resource_class()
+        dataset = resource.export(queryset)
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Объявления"
+
+        # Жирные заголовки
+        bold_font = Font(bold=True, size=12)
+        for col_num, column_title in enumerate(dataset.headers, 1):
+            cell = ws.cell(row=1, column=col_num)
+            cell.value = column_title
+            cell.font = bold_font
+            cell.alignment = Alignment(horizontal='center')
+
+        # Данные
+        for row_num, row in enumerate(dataset.dict, 2):
+            for col_num, value in enumerate(row.values(), 1):
+                ws.cell(row=row_num, column=col_num).value = value
+
+        # Автоширина столбцов
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = (max_length + 2)
+            ws.column_dimensions[column].width = adjusted_width
+
+        # Заморозка первой строки
+        ws.freeze_panes = 'A2'
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename="Объявления_CarHub.xlsx"'
+        wb.save(response)
+        return response
+
     @admin.display(description=_('Полное название'))
     def full_name(self, obj):
         return f'{obj.brand} {obj.model} ({obj.year})'
@@ -59,7 +112,6 @@ class CarAdmin(ImportExportModelAdmin):
     def price_formatted(self, obj):
         return f'{obj.price} ₽'
     price_formatted.short_description = _('Цена')
-
 
 @admin.register(CarPhoto)
 class CarPhotoAdmin(admin.ModelAdmin):

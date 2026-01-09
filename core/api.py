@@ -5,12 +5,12 @@ from django.db.models import Q
 from .models import Car, Brand
 from .serializers import CarSerializer, BrandSerializer
 
-#API для объявлений
+
+# Api щбъявления
 class CarViewSet(viewsets.ModelViewSet):
     queryset = Car.objects.filter(status='active').select_related('brand', 'model', 'user')
     serializer_class = CarSerializer
 
-# Фильтры
     filterset_fields = ['brand', 'model', 'year', 'status', 'price']
     search_fields = ['description', 'brand__name', 'model__name']
     ordering_fields = ['price', 'year', 'created_at', 'views']
@@ -18,23 +18,32 @@ class CarViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
 
-        # Только свои объявления /Кастомный фильтер
+        # Только свои объявления (?my=1)
         if self.request.user.is_authenticated and 'my' in self.request.query_params:
             qs = qs.filter(user=self.request.user)
 
-        # Q-запрос
-        if 'cheap_or_new' in self.request.query_params:
-            qs = qs.filter(Q(price__lt=1500000) | Q(year__gte=2024))
+        # Запрос 1:
+        if 'cheap_new_not_moderation' in self.request.query_params:
+            qs = qs.filter(
+                Q(price__lt=1500000) & Q(year__gte=2024) & ~Q(status='moderation')
+            )
+
+        # Запрос 2
+        if 'old_or_expensive_not_sold' in self.request.query_params:
+            qs = qs.filter(
+                (Q(year__lt=2015) | Q(price__gt=3000000)) & ~Q(status='sold')
+            )
 
         return qs
 
-    # Дешёвые объявления GET
+    # Дешёвые GET /api/cars/cheap/
     @action(detail=False, methods=['get'], url_path='cheap')
     def cheap(self, request):
-        qs = self.get_queryset().filter(price__lt=1000000)
+        qs = self.get_queryset().filter(price__lte=1000000)
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
 
+    # Увеличить просмотры POST /api/cars/{id}/view/
     @action(detail=True, methods=['post'], url_path='view')
     def view(self, request, pk=None):
         car = self.get_object()
@@ -42,12 +51,9 @@ class CarViewSet(viewsets.ModelViewSet):
         car.save(update_fields=['views'])
         return Response({'message': 'Просмотр засчитан', 'views': car.views})
 
-
-
-# API для марок автомобилей
+#  API для марок автомобилей 
 class BrandViewSet(viewsets.ModelViewSet):
     queryset = Brand.objects.all().order_by('name')
     serializer_class = BrandSerializer
-
     search_fields = ['name']
     ordering_fields = ['name', 'created_at']

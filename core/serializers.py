@@ -30,7 +30,6 @@ class CarSerializer(serializers.ModelSerializer):
         write_only=True
     )
 
-
     class Meta:
         model = Car
         fields = [
@@ -40,13 +39,13 @@ class CarSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['views', 'created_at', 'user', 'user_name']
 
-    # Своя валидация цены
     def validate_price(self, value):
         if value < 0:
             raise serializers.ValidationError("Цена не может быть отрицательной")
         if value == 0:
             raise serializers.ValidationError("Цена должна быть больше 0")
         return value
+
     def validate_year(self, value):
         current_year = 2026
         if value < 1900:
@@ -55,14 +54,12 @@ class CarSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(f"Год не может быть позже {current_year + 1}")
         return value
 
-    # Проверка соответствия модели и марки
     def validate(self, data):
         brand = data.get('brand')
         model = data.get('model')
         if brand and model and model.brand != brand:
             raise serializers.ValidationError({"model": "Модель не принадлежит выбранной марке"})
         return data
-
 
     def create(self, validated_data):
         validated_data['user'] = self.context['request'].user
