@@ -2,10 +2,11 @@ from django.urls import path, include  # ← исправлено
 from django.contrib.auth import views as auth_views
 from . import views
 from rest_framework.routers import DefaultRouter
-from .api import CarViewSet
+from .api import CarViewSet, BrandViewSet
 
 router = DefaultRouter()
 router.register(r'cars', CarViewSet)
+router.register(r'brands', BrandViewSet)
 
 app_name = 'core'
 
@@ -16,5 +17,6 @@ urlpatterns = [
     path('car/<int:pk>/edit/', views.CarUpdateView.as_view(), name='car_update'),
     path('car/<int:pk>/delete/', views.CarDeleteView.as_view(), name='car_delete'),
     path('logout/', auth_views.LogoutView.as_view(next_page='/'), name='logout'),
-    path('api/', include(router.urls)),  # теперь include известен
+    path('api/', include(router.urls)),
+    path('api/', include(router.urls)),
 ]

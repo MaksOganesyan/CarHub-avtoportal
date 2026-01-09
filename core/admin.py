@@ -39,8 +39,8 @@ class ModelAdmin(admin.ModelAdmin):
 
 
 @admin.register(Car)
-class CarAdmin(ImportExportModelAdmin):  # ← Наследуем от ImportExportModelAdmin
-    resource_class = CarResource  # ← Подключаем ресурс для экспорта
+class CarAdmin(ImportExportModelAdmin):
+    resource_class = CarResource
 
     list_display = ('id', 'full_name', 'year', 'price_formatted', 'status', 'views', 'created_at')
     list_filter = ('status', 'brand', 'year', 'created_at')

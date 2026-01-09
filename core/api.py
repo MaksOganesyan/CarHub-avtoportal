@@ -1,36 +1,53 @@
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Car
-from .serializers import CarSerializer
+from django.db.models import Q
+from .models import Car, Brand
+from .serializers import CarSerializer, BrandSerializer
 
-
+#API для объявлений
 class CarViewSet(viewsets.ModelViewSet):
     queryset = Car.objects.filter(status='active').select_related('brand', 'model', 'user')
     serializer_class = CarSerializer
-    filterset_fields = ['brand', 'model', 'year']  # фильтр по get-параметрам
-    search_fields = ['description', 'brand__name', 'model__name']  # поиск
-    ordering_fields = ['price', 'year', 'created_at']
 
-    # Фильтр: только свои объявления для аутентифицированного пользователя
+# Фильтры
+    filterset_fields = ['brand', 'model', 'year', 'status', 'price']
+    search_fields = ['description', 'brand__name', 'model__name']
+    ordering_fields = ['price', 'year', 'created_at', 'views']
+
     def get_queryset(self):
         qs = super().get_queryset()
-        if self.request.user.is_authenticated:
-            if 'my' in self.request.query_params:
-                qs = qs.filter(user=self.request.user)
+
+        # Только свои объявления /Кастомный фильтер
+        if self.request.user.is_authenticated and 'my' in self.request.query_params:
+            qs = qs.filter(user=self.request.user)
+
+        # Q-запрос
+        if 'cheap_or_new' in self.request.query_params:
+            qs = qs.filter(Q(price__lt=1500000) | Q(year__gte=2024))
+
         return qs
 
-    # Дополнительный метод для списка
-    @action(detail=False, methods=['get'])
+    # Дешёвые объявления GET
+    @action(detail=False, methods=['get'], url_path='cheap')
     def cheap(self, request):
-        qs = self.get_queryset().filter(price__lt=1000000)  # пример: дешевле миллиона
+        qs = self.get_queryset().filter(price__lt=1000000)
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
 
-    # Дополнительный метод для объекта (например, отметить просмотренным)
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='view')
     def view(self, request, pk=None):
         car = self.get_object()
         car.views += 1
-        car.save()
-        return Response({'views': car.views})
+        car.save(update_fields=['views'])
+        return Response({'message': 'Просмотр засчитан', 'views': car.views})
+
+
+
+# API для марок автомобилей
+class BrandViewSet(viewsets.ModelViewSet):
+    queryset = Brand.objects.all().order_by('name')
+    serializer_class = BrandSerializer
+
+    search_fields = ['name']
+    ordering_fields = ['name', 'created_at']
