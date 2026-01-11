@@ -1,61 +1,68 @@
-{% extends "core/base.html" %} {% block content %}
-<h1 style="font-size: 2.5rem; margin-bottom: 2rem; color: #2c3e50">
-  Объявления об автомобилях
+{% extends "core/base.html" %}
+
+{% block title %}CarHub — Объявления{% endblock %}
+
+{% block content %}
+<h1 style="font-size: 2.5rem; margin-bottom: 2rem; color: #2c3e50;">
+    Объявления об автомобилях
 </h1>
 
 {% if user.is_authenticated %}
-<div style="margin-bottom: 2rem">
-  <a
-    href="{% url 'core:car_create' %}"
-    class="btn btn-success"
-    style="font-size: 1.2rem; padding: 0.8rem 1.5rem"
-  >
-    + Добавить объявление
-  </a>
+<div style="margin-bottom: 2rem;">
+    <a href="{% url 'core:car_create' %}" class="btn-success" style="font-size: 1.2rem; padding: 0.8rem 1.5rem; color: white; text-decoration: none;">
+        + Добавить объявление
+    </a>
 </div>
 {% endif %}
 
 <div class="cars-grid">
-  {% for car in cars %}
-  <div class="car-card">
-    {% if car.main_image_url %}
-    <img
-      src="{{ car.main_image_url }}"
-      alt="{{ car.brand }} {{ car.model }}"
-      class="car-img"
-    />
-    {% else %}
-    <img
-      src="https://via.placeholder.com/600x400?text=Нет+фото"
-      alt="Нет фото"
-      class="car-img"
-    />
-    {% endif %}
-    <div class="car-body">
-      <div class="car-title">
-        <a href="{% url 'core:car_detail' car.pk %}">
-          {{ car.model }} ({{ car.year }})
-        </a>
-      </div>
-      <div class="car-price">{{ car.price|floatformat:0 }} ₽</div>
-      <p><strong>Пробег:</strong> {{ car.mileage|default:"не указан" }} км</p>
-      <p style="color: #666; margin-top: 1rem">
-        {{ car.description|truncatewords:30 }}
-      </p>
+    {% for car in cars %}
+    <div class="car-card">
+        {% if car.main_image %}
+            <img src="{{ car.main_image.url }}" alt="{{ car }}" class="car-img">
+        {% elif car.main_image_url %}
+            <img src="{{ car.main_image_url }}" alt="{{ car }}" class="car-img">
+        {% else %}
+            <img src="https://via.placeholder.com/320x220?text=Нет+фото" alt="Нет фото" class="car-img">
+        {% endif %}
+
+        <div class="car-body">
+            <div class="car-title">
+                <a href="{% url 'core:car_detail' car.pk %}">
+                    {{ car.model }} ({{ car.year }})
+                </a>
+            </div>
+            <div class="car-price">{{ car.price|floatformat:0 }} ₽</div>
+            <p><strong>Пробег:</strong> {{ car.mileage|default:"не указан" }} км</p>
+            <p style="color: #666; margin-top: 1rem;">
+                {{ car.description|truncatewords:30 }}
+            </p>
+        </div>
     </div>
-  </div>
-  {% empty %}
-  <p
-    style="
-      grid-column: 1 / -1;
-      text-align: center;
-      font-size: 1.4rem;
-      color: #777;
-      margin-top: 3rem;
-    "
-  >
-    Пока нет активных объявлений.
-  </p>
-  {% endfor %}
+    {% empty %}
+    <p style="grid-column: 1 / -1; text-align: center; font-size: 1.4rem; color: #777; margin-top: 3rem;">
+        Пока нет активных объявлений.
+    </p>
+    {% endfor %}
 </div>
+
+{% if is_paginated %}
+    <div class="pagination" style="margin-top: 3rem; text-align: center; font-size: 1.2rem;">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" style="margin: 0 1rem; color: #3498db; text-decoration: none;">
+                ← Предыдущая
+            </a>
+        {% endif %}
+
+        <span style="color: #2c3e50; font-weight: bold;">
+            Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+        </span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" style="margin: 0 1rem; color: #3498db; text-decoration: none;">
+                Следующая →
+            </a>
+        {% endif %}
+    </div>
+{% endif %}
 {% endblock %}

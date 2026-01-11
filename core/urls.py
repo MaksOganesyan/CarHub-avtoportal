@@ -1,4 +1,4 @@
-from django.urls import path, include  # ← исправлено
+from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from . import views
 from rest_framework.routers import DefaultRouter
@@ -16,7 +16,12 @@ urlpatterns = [
     path('car/add/', views.CarCreateView.as_view(), name='car_create'),
     path('car/<int:pk>/edit/', views.CarUpdateView.as_view(), name='car_update'),
     path('car/<int:pk>/delete/', views.CarDeleteView.as_view(), name='car_delete'),
-    path('logout/', auth_views.LogoutView.as_view(next_page='/'), name='logout'),
-    path('api/', include(router.urls)),
+
+    # Регистрация и логин
+    path('register/', views.register, name='register'),
+    path('login/', views.user_login, name='login'),
+    path('logout/', views.user_logout, name='logout'),
+
+    # API
     path('api/', include(router.urls)),
 ]

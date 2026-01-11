@@ -1,4 +1,6 @@
-{% extends "core/base.html" %}
+{% extends 'core/base.html' %}
+
+{% block title %}Добавить/Изменить объявление{% endblock %}
 
 {% block content %}
 <div style="max-width: 600px; margin: 0 auto; background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
@@ -6,7 +8,7 @@
         {% if form.instance.pk %}Редактировать объявление{% else %}Добавить объявление{% endif %}
     </h1>
 
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
 
         <div style="margin-bottom: 1.5rem;">
@@ -55,8 +57,15 @@
             {{ form.description }}
         </div>
 
+        <!-- Поле загрузки файла — теперь будет работать -->
         <div style="margin-bottom: 1.5rem;">
-            <label for="id_main_image_url" style="display: block; margin-bottom: 0.5rem; font-weight: bold; color: #2c3e50;">Основное фото (URL):</label>
+            <label for="id_main_image" style="display: block; margin-bottom: 0.5rem; font-weight: bold; color: #2c3e50;">Загрузить фото с устройства:</label>
+            {{ form.main_image }}
+            <small style="color: #666;">Выберите jpg, png (макс. 5 МБ)</small>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+            <label for="id_main_image_url" style="display: block; margin-bottom: 0.5rem; font-weight: bold; color: #2c3e50;">ИЛИ вставьте ссылку на фото:</label>
             {{ form.main_image_url }}
         </div>
 
@@ -74,6 +83,7 @@
     </form>
 </div>
 
+<!-- Твой JS для зависимых списков остаётся без изменений -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(document).ready(function() {

@@ -2,13 +2,16 @@ from django.views.generic import ListView, DetailView, CreateView, UpdateView, D
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from .models import Car, Brand, Model
-
+from django.shortcuts import render, redirect
+from django.contrib.auth import login, logout
+from .forms import CustomUserCreationForm, CustomAuthenticationForm, CarForm
 
 class CarListView(ListView):
     model = Car
     template_name = 'core/car_list.html'
     context_object_name = 'cars'
     queryset = Car.objects.filter(status='active').order_by('-created_at')
+    paginate_by = 10
 
 
 class CarDetailView(DetailView):
@@ -22,11 +25,10 @@ class CarDetailView(DetailView):
         return context
 
 
-# CRUD
 class CarCreateView(LoginRequiredMixin, CreateView):
     model = Car
+    form_class = CarForm
     template_name = 'core/car_form.html'
-    fields = ['brand', 'model', 'year', 'mileage', 'price', 'description', 'main_image_url', 'status']
     success_url = reverse_lazy('core:car_list')
 
     def get_context_data(self, **kwargs):
@@ -43,8 +45,8 @@ class CarCreateView(LoginRequiredMixin, CreateView):
 
 class CarUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = Car
+    form_class = CarForm  # ← только это!
     template_name = 'core/car_form.html'
-    fields = ['brand', 'model', 'year', 'mileage', 'price', 'description', 'main_image_url', 'status']
     success_url = reverse_lazy('core:car_list')
 
     def get_context_data(self, **kwargs):
@@ -66,3 +68,33 @@ class CarDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     def test_func(self):
         car = self.get_object()
         return self.request.user == car.user
+
+
+# Регистрация и логин — без изменений
+def register(request):
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            return redirect('core:car_list')
+    else:
+        form = CustomUserCreationForm()
+    return render(request, 'registration/register.html', {'form': form})
+
+
+def user_login(request):
+    if request.method == 'POST':
+        form = CustomAuthenticationForm(data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            return redirect('core:car_list')
+    else:
+        form = CustomAuthenticationForm()
+    return render(request, 'registration/login.html', {'form': form})
+
+
+def user_logout(request):
+    logout(request)
+    return redirect('core:car_list')

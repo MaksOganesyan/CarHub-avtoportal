@@ -132,6 +132,12 @@ class Car(models.Model):
         blank=True,
         verbose_name=_('Основное фото (URL)')
     )
+    main_image = models.ImageField(
+        upload_to='cars/%Y/%m/%d/',
+        blank=True,
+        null=True,
+        verbose_name='Главное фото'
+    )
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,

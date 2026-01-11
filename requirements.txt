@@ -12,3 +12,4 @@ pyflakes==3.4.0
 sqlparse==0.5.5
 tablib==3.9.0
 tzdata==2025.3
+openpyxl
