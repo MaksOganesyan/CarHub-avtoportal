@@ -46,7 +46,7 @@ class CarCreateView(LoginRequiredMixin, CreateView):
 
 class CarUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = Car
-    form_class = CarForm  # ← только это!
+    form_class = CarForm
     template_name = 'core/car_form.html'
     success_url = reverse_lazy('core:car_list')
 
@@ -71,7 +71,7 @@ class CarDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
         return self.request.user == car.user
 
 
-# Регистрация и логин — без изменений
+# Регистрация и логин
 def register(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)

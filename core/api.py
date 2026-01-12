@@ -18,7 +18,7 @@ class CarViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
 
-        # Только свои объявления
+        # собственные объявления
         if self.request.user.is_authenticated and 'my' in self.request.query_params:
             qs = qs.filter(user=self.request.user)
 
@@ -36,7 +36,7 @@ class CarViewSet(viewsets.ModelViewSet):
 
         return qs
 
-    # Дешёвые GET /api/cars/cheap/
+    # Дешёвые тачки GET /api/cars/cheap/
     @action(detail=False, methods=['get'], url_path='cheap')
     def cheap(self):
         qs = self.get_queryset().filter(price__lte=1000000)
