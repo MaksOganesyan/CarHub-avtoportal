@@ -4,8 +4,8 @@ from rest_framework.routers import DefaultRouter
 from .api import CarViewSet, BrandViewSet
 
 router = DefaultRouter()
-router.register(r'cars', CarViewSet)
-router.register(r'brands', BrandViewSet)
+router.register(r'cars', CarViewSet, basename="cars")
+router.register(r'brands', BrandViewSet, basename="brands")
 
 app_name = 'core'
 

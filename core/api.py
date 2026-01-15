@@ -37,14 +37,14 @@ class CarViewSet(viewsets.ModelViewSet):
         return qs
 
     # Дешёвые тачки GET /api/cars/cheap/
-    @action(detail=False, methods=['get'], url_path='cheap')
+    @action(detail=False, methods=['get'])
     def cheap(self, request):
         qs = self.get_queryset().filter(price__lte=1000000)
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
 
     # Увеличить просмотры POST /api/cars/{id}/view/
-    @action(detail=True, methods=['post'], url_path='view')
+    @action(detail=True, methods=['post'])
     def view(self, request, pk=None):
         car = self.get_object()
         car.views += 1
