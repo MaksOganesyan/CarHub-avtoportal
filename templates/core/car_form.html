@@ -13,7 +13,7 @@
 
         <div style="margin-bottom: 1.5rem;">
             <label for="id_brand" style="display: block; margin-bottom: 0.5rem; font-weight: bold; color: #2c3e50;">Марка:</label>
-            <select name="brand" id="id_brand" class="form-select" required>
+            <select name="brand" id="id_brand" required style="width:100%; padding:0.8rem; border:1px solid #ddd; border-radius:6px; font-size:1rem;">
                 <option value="">---------</option>
                 {% for brand in brands %}
                     <option value="{{ brand.id }}" {% if form.instance.brand.id == brand.id %}selected{% endif %}>
@@ -21,11 +21,12 @@
                     </option>
                 {% endfor %}
             </select>
+            <small style="color:#666;">Сначала выберите марку — список моделей обновится автоматически</small>
         </div>
 
         <div style="margin-bottom: 1.5rem;">
             <label for="id_model" style="display: block; margin-bottom: 0.5rem; font-weight: bold; color: #2c3e50;">Модель:</label>
-            <select name="model" id="id_model" class="form-select" required>
+            <select name="model" id="id_model" required style="width:100%; padding:0.8rem; border:1px solid #ddd; border-radius:6px; font-size:1rem;">
                 <option value="">---------</option>
                 {% for model in models %}
                     <option value="{{ model.id }}" data-brand="{{ model.brand.id }}"
@@ -34,6 +35,7 @@
                     </option>
                 {% endfor %}
             </select>
+            <small id="model-hint" style="color:#888;"></small>
         </div>
 
         <!-- Остальные поля -->
@@ -85,40 +87,58 @@
     </form>
 </div>
 
-<!-- Твой JS для зависимых списков остаётся без изменений -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-$(document).ready(function() {
-    var modelsByBrand = {};
-    $('#id_model option[data-brand]').each(function() {
-        var option = $(this);
-        var brandId = option.data('brand');
-        if (!modelsByBrand[brandId]) {
-            modelsByBrand[brandId] = [];
-        }
-        modelsByBrand[brandId].push({
-            value: option.val(),
-            text: option.text(),
-            selected: option.is(':selected')
-        });
-    });
 
-    $('#id_brand').change(function() {
-        var brandId = $(this).val();
-        var modelSelect = $('#id_model');
-        
-        modelSelect.empty();
-        modelSelect.append('<option value="">---------</option>');
-        
-        if (brandId && modelsByBrand[brandId]) {
-            modelsByBrand[brandId].forEach(function(model) {
-                var selected = model.selected ? 'selected' : '';
-                modelSelect.append('<option value="' + model.value + '" ' + selected + '>' + model.text + '</option>');
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var brandSelect = document.getElementById('id_brand');
+    var modelSelect = document.getElementById('id_model');
+    var hint = document.getElementById('model-hint');
+
+    var modelsByBrand = {};
+    Array.prototype.forEach.call(modelSelect.options, function (opt) {
+        var brandId = opt.getAttribute('data-brand');
+        if (brandId) {
+            if (!modelsByBrand[brandId]) modelsByBrand[brandId] = [];
+            modelsByBrand[brandId].push({
+                value: opt.value,
+                text: opt.textContent || opt.innerText,
+                selected: opt.selected
             });
         }
     });
 
-    $('#id_brand').trigger('change');
+    function updateModels(brandId) {
+        modelSelect.innerHTML = '';
+        var ph = document.createElement('option');
+        ph.value = '';
+        ph.textContent = '---------';
+        modelSelect.appendChild(ph);
+
+        var list = modelsByBrand[brandId] || [];
+
+        if (list.length === 0) {
+            if (hint) hint.textContent = 'Сначала выберите марку';
+            modelSelect.disabled = true;
+            return;
+        } else {
+            if (hint) hint.textContent = '';
+            modelSelect.disabled = false;
+        }
+
+        list.forEach(function (m) {
+            var opt = document.createElement('option');
+            opt.value = m.value;
+            opt.textContent = m.text;
+            if (m.selected) opt.selected = true;
+            modelSelect.appendChild(opt);
+        });
+    }
+
+    updateModels(brandSelect.value);
+
+    brandSelect.addEventListener('change', function () {
+        updateModels(this.value);
+    });
 });
 </script>
 {% endblock %}
