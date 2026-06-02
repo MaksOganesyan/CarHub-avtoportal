@@ -1,6 +1,7 @@
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib import messages
 from .models import Car, Brand, Model
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
@@ -12,7 +13,7 @@ class CarListView(ListView):
     template_name = 'core/car_list.html'
     context_object_name = 'cars'
     queryset = Car.objects.filter(status='active').order_by('-created_at')
-    paginate_by = 3
+    paginate_by = 10
 
 
 class CarDetailView(DetailView):
@@ -41,7 +42,12 @@ class CarCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         form.instance.user = self.request.user
         form.instance.created_by = self.request.user
+        messages.success(self.request, 'Объявление успешно добавлено!')
         return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, 'Проверьте данные. Есть ошибки в форме.')
+        return super().form_invalid(form)
 
 
 class CarUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
@@ -78,6 +84,7 @@ def register(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
+            messages.success(request, 'Регистрация прошла успешно!')
             return redirect('core:car_list')
     else:
         form = CustomUserCreationForm()
@@ -90,6 +97,7 @@ def user_login(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+            messages.success(request, f'Добро пожаловать, {user.username}!')
             return redirect('core:car_list')
     else:
         form = CustomAuthenticationForm()
@@ -98,4 +106,5 @@ def user_login(request):
 
 def user_logout(request):
     logout(request)
+    messages.info(request, 'Вы вышли из аккаунта.')
     return redirect('core:car_list')
