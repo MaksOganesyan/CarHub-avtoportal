@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Car, Brand, Model
+from .models import Car, Brand, Model, CarPhoto
 
 
 class BrandSerializer(serializers.ModelSerializer):
@@ -19,6 +19,13 @@ class CarSerializer(serializers.ModelSerializer):
     model_name = serializers.CharField(source='model.name', read_only=True)
     user_name = serializers.CharField(source='user.username', read_only=True)
 
+    # === Пункт 4.1 задания: SerializerMethodField ===
+    photo_count = serializers.SerializerMethodField()
+    main_photo = serializers.SerializerMethodField()
+
+    # === Пункт 4.2: данные через context (is_favorited для текущего пользователя) ===
+    is_favorited = serializers.SerializerMethodField()
+
     brand = serializers.PrimaryKeyRelatedField(
         queryset=Brand.objects.all(),
         required=True,
@@ -35,9 +42,40 @@ class CarSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'brand', 'brand_name', 'model', 'model_name',
             'year', 'mileage', 'price', 'description', 'main_image_url',
-            'status', 'views', 'user', 'user_name', 'created_at'
+            'status', 'views', 'user', 'user_name', 'created_at',
+            'photo_count', 'main_photo', 'is_favorited'
         ]
-        read_only_fields = ['views', 'created_at', 'user', 'user_name']
+        read_only_fields = ['views', 'created_at', 'user', 'user_name', 'photo_count', 'main_photo', 'is_favorited']
+
+    # === SerializerMethodField примеры ===
+
+    def get_photo_count(self, obj):
+        """Количество дополнительных фотографий у объявления."""
+        return obj.photos.count()
+
+    def get_main_photo(self, obj):
+        """Возвращает URL главного фото (приоритет: загруженное > внешняя ссылка)."""
+        if obj.main_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.main_image.url)
+            return obj.main_image.url
+        return obj.main_image_url or None
+
+    def get_is_favorited(self, obj):
+        """
+        Пункт 4.2 задания: используем context (request.user) чтобы определить,
+        находится ли объявление в избранном у текущего пользователя.
+        """
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        # Избегаем лишнего запроса, если related_name уже загружен (через prefetch)
+        if hasattr(obj, '_favorited_by_user_ids'):
+            return request.user.id in obj._favorited_by_user_ids
+        return obj.favorited_by.filter(user=request.user).exists()
+
+    # === Валидация бизнес-логики (пункт 2) ===
 
     def validate_price(self, value):
         if value < 0:
@@ -63,4 +101,7 @@ class CarSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data['user'] = self.context['request'].user
+        # Обычные пользователи не могут сразу публиковать
+        if not self.context['request'].user.is_staff:
+            validated_data['status'] = Car.MODERATION
         return super().create(validated_data)

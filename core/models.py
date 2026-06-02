@@ -6,16 +6,21 @@ from simple_history.models import HistoricalRecords
 
 class User(AbstractUser):
     # Юзеры
+    USER = 'user'
+    SELLER = 'seller'
+    MODERATOR = 'moderator'
+    ADMIN = 'admin'
+
     ROLE_CHOICES = (
-        ('user', _('Обычный пользователь')),
-        ('seller', _('Продавец')),
-        ('moderator', _('Модератор')),
-        ('admin', _('Администратор')),
+        (USER, _('Обычный пользователь')),
+        (SELLER, _('Продавец')),
+        (MODERATOR, _('Модератор')),
+        (ADMIN, _('Администратор')),
     )
     role = models.CharField(
         max_length=20,
         choices=ROLE_CHOICES,
-        default='user',
+        default=SELLER,   # По умолчанию — продавец (регистрация через форму)
         verbose_name=_('Роль')
     )
     phone = models.CharField(

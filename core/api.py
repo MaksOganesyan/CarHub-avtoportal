@@ -1,16 +1,40 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db.models import Q
+from django.db.models import Q, Count
 from .models import Car, Brand
 from .serializers import CarSerializer, BrandSerializer
+from .filters import CarFilter  # наш FilterSet
+
+class IsSellerOrReadOnly(permissions.BasePermission):
+    """
+    Продавец (или staff) может создавать/редактировать свои объявления.
+    Остальные — только чтение.
+    """
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return request.user.is_authenticated
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj.user == request.user or request.user.is_staff
+
+class IsModeratorOrAdmin(permissions.BasePermission):
+    """Только модераторы и админы могут модерировать."""
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and (request.user.is_staff or getattr(request.user, 'role', None) in ('moderator', 'admin'))
 
 
 class CarViewSet(viewsets.ModelViewSet):
     queryset = Car.objects.filter(status=Car.ACTIVE).select_related('brand', 'model', 'user')
     serializer_class = CarSerializer
+    filterset_class = CarFilter   # используем полноценный FilterSet
 
-    filterset_fields = ['brand', 'model', 'year', 'status', 'price']
+    # Базовые права: чтение для всех, запись — только для продавцов (с проверкой владельца)
+    permission_classes = [IsSellerOrReadOnly]
+
     search_fields = ['description', 'brand__name', 'model__name']
     ordering_fields = ['price', 'year', 'created_at', 'views']
 
@@ -30,7 +54,10 @@ class CarViewSet(viewsets.ModelViewSet):
                 (Q(year__lt=2015) | Q(price__gt=3000000)) & ~Q(status=Car.SOLD)
             )
 
-        return qs
+        # Пункт 3 + 5 задания: select_related + prefetch_related + аннотации
+        return qs.select_related('brand', 'model', 'user').prefetch_related('photos').annotate(
+            photo_count=Count('photos')
+        )
 
     @action(detail=False, methods=['get'], url_path='cheap')
     def cheap(self, request):   # ← обязательно request
@@ -38,7 +65,7 @@ class CarViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(qs, many=True)
             return Response(serializer.data)
 
-    @action(detail=True, methods=['post'], url_path='view')
+    @action(detail=True, methods=['post'], url_path='view', permission_classes=[permissions.AllowAny])
     def view(self, request, pk=None):
         car = self.get_object()
         car.views += 1

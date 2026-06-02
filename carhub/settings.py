@@ -142,3 +142,38 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 AUTH_USER_MODEL = 'core.User'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# ==============================================
+# django-debug-toolbar (для демонстрации оптимизации запросов)
+# Используется чтобы показать эффект от select_related / prefetch_related
+# на страницах списка объявлений, деталки, избранного и API.
+# ==============================================
+if DEBUG:
+    INSTALLED_APPS += ['debug_toolbar']
+
+    # Вставляем middleware после CommonMiddleware (стандартная рекомендация)
+    # Позиция важна: раньше, чем GZip, Csrf и т.д.
+    try:
+        common_idx = MIDDLEWARE.index('django.middleware.common.CommonMiddleware')
+        MIDDLEWARE.insert(common_idx + 1, 'debug_toolbar.middleware.DebugToolbarMiddleware')
+    except ValueError:
+        MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
+
+    # INTERNAL_IPS — без этого тулбар не покажется
+    INTERNAL_IPS = ['127.0.0.1', 'localhost']
+
+    # Поддержка Docker (docker-compose)
+    # В контейнере IP хоста обычно 172.17.0.1 или определяется динамически
+    INTERNAL_IPS += ['172.17.0.1', '172.18.0.1']
+
+    try:
+        import socket
+        hostname, _, ips = socket.gethostbyname_ex(socket.gethostname())
+        INTERNAL_IPS += [ip[:ip.rfind(".")] + ".1" for ip in ips if "." in ip]
+    except Exception:
+        pass
+
+    DEBUG_TOOLBAR_CONFIG = {
+        'SHOW_TOOLBAR_CALLBACK': lambda request: DEBUG,
+        'RESULTS_CACHE_SIZE': 100,
+    }
