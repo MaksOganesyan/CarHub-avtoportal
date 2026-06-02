@@ -158,6 +158,3 @@ class FavoriteAdmin(admin.ModelAdmin):
                 pass
         return str(obj.car) or '—'
     car_link.short_description = _('Автомобиль')
-
-
-
