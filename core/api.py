@@ -32,12 +32,11 @@ class CarViewSet(viewsets.ModelViewSet):
 
         return qs
 
-    # Исправленный метод cheap
     @action(detail=False, methods=['get'], url_path='cheap')
-    def cheap(self, request):                    # ← добавил request
-        qs = self.get_queryset().filter(price__lte=1000000)
-        serializer = self.get_serializer(qs, many=True)
-        return Response(serializer.data)
+    def cheap(self, request):   # ← обязательно request
+            qs = self.get_queryset().filter(price__lte=1000000)
+            serializer = self.get_serializer(qs, many=True)
+            return Response(serializer.data)
 
     @action(detail=True, methods=['post'], url_path='view')
     def view(self, request, pk=None):

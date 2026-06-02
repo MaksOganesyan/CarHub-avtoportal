@@ -29,6 +29,21 @@ class CarDetailView(DetailView):
 
 class CarCreateView(LoginRequiredMixin, CreateView):
     model = Car
+    form_class = CarForm          # ← только это
+    template_name = 'core/car_form.html'
+    success_url = reverse_lazy('core:car_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['brands'] = Brand.objects.all()
+        context['models'] = Model.objects.all()
+        return context
+
+    def form_valid(self, form):   # ← только form, без request
+        form.instance.user = self.request.user
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+    model = Car
     form_class = CarForm
     template_name = 'core/car_form.html'
     success_url = reverse_lazy('core:car_list')
