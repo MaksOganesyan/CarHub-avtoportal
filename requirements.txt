@@ -24,6 +24,4 @@ django-allauth>=0.57
 gunicorn>=21.0
 django-celery-beat>=2.5
 Pillow>=10.0
-# whitenoise — опционально для продакшена (если хочешь отдавать статику без nginx).
-# Если используешь — раскомментируй и установи. В settings.py сейчас не подключен по умолчанию (dev-friendly).
-# whitenoise>=6.6
+
