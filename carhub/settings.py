@@ -16,6 +16,9 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+import sys
+TESTING = 'test' in sys.argv
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -71,7 +74,6 @@ REST_FRAMEWORK = {
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -150,77 +152,54 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-WHITENOISE_AUTOREFRESH = True
-WHITENOISE_USE_FINDERS = True
 AUTH_USER_MODEL = 'core.User'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # ==============================================
-# django-debug-toolbar (для демонстрации оптимизации запросов)
-# Используется чтобы показать эффект от select_related / prefetch_related
-# на страницах списка объявлений, деталки, избранного и API.
+# django-debug-toolbar + Django Silk
+# Используются только в DEBUG для демонстрации оптимизации запросов (пункт 4 "хорошо")
+# и профилирования (select_related, N+1 и т.д.).
+# В тестах (TESTING) — полностью отключены, чтобы не ломать INSTALLED_APPS и не замедлять тесты.
 # ==============================================
-import sys
-TESTING = 'test' in sys.argv
-
 if DEBUG and not TESTING:
     INSTALLED_APPS += ['debug_toolbar', 'silk']
 
-    # Middleware order for debug tools:
-    # debug_toolbar after Common, silk early for profiling.
+    # Порядок middleware важен:
+    # - Silk как можно раньше (после security)
+    # - Debug toolbar после CommonMiddleware
     try:
         common_idx = MIDDLEWARE.index('django.middleware.common.CommonMiddleware')
         MIDDLEWARE.insert(common_idx + 1, 'debug_toolbar.middleware.DebugToolbarMiddleware')
     except ValueError:
         MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
 
-    # Insert Silk middleware near the top (after security/session)
     MIDDLEWARE.insert(1, 'silk.middleware.SilkyMiddleware')
 
-    # INTERNAL_IPS — без этого тулбар не покажется
     INTERNAL_IPS = ['127.0.0.1', 'localhost']
 
     # Поддержка Docker (docker-compose)
-    # В контейнере IP хоста обычно 172.17.0.1 или определяется динамически
     INTERNAL_IPS += ['172.17.0.1', '172.18.0.1']
-
-    try:
-        import socket
-        hostname, _, ips = socket.gethostbyname_ex(socket.gethostname())
-        INTERNAL_IPS += [ip[:ip.rfind(".")] + ".1" for ip in ips if "." in ip]
-    except Exception:
-        pass
 
     DEBUG_TOOLBAR_CONFIG = {
         'SHOW_TOOLBAR_CALLBACK': lambda request: DEBUG,
-        'RESULTS_CACHE_SIZE': 100,
-        'IS_RUNNING_TESTS': True,  # prevent toolbar from interfering with tests
     }
 
-    # Silk configuration for profiling
-    SILKY_PYTHON_PROFILER = True  # enable Python profiler
-    SILKY_AUTHENTICATION = False  # allow all in DEBUG (restrict in prod)
+    # Silk — профилирование всех запросов в dev
+    SILKY_PYTHON_PROFILER = True
+    SILKY_AUTHENTICATION = False
     SILKY_AUTHORISATION = False
-    SILKY_META = True  # store meta data
-    SILKY_INTERCEPT_PERCENT = 100  # profile all requests in dev
+    SILKY_META = True
+    SILKY_INTERCEPT_PERCENT = 100
 
-# Explicitly remove debug tools in tests to avoid E001 and namespace errors
+# В тестах убираем silk/toolbar из INSTALLED_APPS (иначе ошибки при проверках)
 if TESTING:
     for tool in ['debug_toolbar', 'silk']:
         if tool in INSTALLED_APPS:
             INSTALLED_APPS.remove(tool)
 
-    # Silk configuration for profiling
-    SILKY_PYTHON_PROFILER = True  # enable Python profiler
-    SILKY_AUTHENTICATION = False  # allow all in DEBUG (restrict in prod)
-    SILKY_AUTHORISATION = False
-    SILKY_META = True  # store meta data
-    SILKY_INTERCEPT_PERCENT = 100  # profile all requests in dev
 
-
-# Celery configuration (for async tasks and periodic tasks, grade 4)
+# Celery configuration (for async tasks and periodic tasks, пункт 1 "отлично")
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']
@@ -229,17 +208,8 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
-# Принудительно eager mode + in-memory в тестах (пункт 1 на отлично) — тесты не зависят от реального Redis/Mailhog
-if TESTING:
-    CELERY_TASK_ALWAYS_EAGER = True
-    CELERY_TASK_EAGER_PROPAGATES = True
-    CELERY_BROKER_URL = 'memory://'
-    CELERY_RESULT_BACKEND = 'cache'
-    CELERY_CACHE_BACKEND = 'memory'
-    # Локальная почта для тестов (без SMTP)
-    EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
-
-# Email for Mailhog (dev) and production
+# Email defaults (Mailhog для dev, smtp в проде)
+# Для тестов переопределяем ниже
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 1025))
@@ -248,19 +218,26 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = 'CarHub <noreply@carhub.local>'
 
+# Тестовые оверрайды (должны быть после дефолтов, чтобы победить)
+if TESTING:
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+    CELERY_BROKER_URL = 'memory://'
+    CELERY_RESULT_BACKEND = 'cache'
+    CELERY_CACHE_BACKEND = 'memory'
+    # Безопасная почта в тестах (не лезем в реальный SMTP/Mailhog)
+    EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+
 
 # allauth + OAUTH2 (пункт 4 на отлично)
 # VK и Google. Для VK нужно создать приложение на https://vk.com/dev , для Google https://console.developers.google.com
 SITE_ID = 1
 
-# Production settings (for deploy, пункт 3 на отлично)
+# Production hardening (пункт 3 "отлично")
 if not DEBUG:
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_BROWSER_XSS_FILTER = True
     X_FRAME_OPTIONS = 'DENY'
-    # Use real DB, e.g. postgres in prod
-    # DATABASES = { ... from env }
-    # STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'  # if using whitenoise
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
