@@ -1,11 +1,15 @@
+from typing import Any
+
 from django.contrib import admin
+from django.db.models.query import QuerySet
+from django.http import HttpRequest, HttpResponse
+from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
-from django.http import HttpResponse
-from django.urls import reverse
+
 from .models import User, Brand, Model, Car, CarPhoto, Favorite, ForumPost
-from import_export.admin import ImportExportModelAdmin
 from .resources import CarResource
+from import_export.admin import ImportExportModelAdmin
 from import_export.formats import base_formats
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
@@ -57,7 +61,7 @@ class CarAdmin(ImportExportModelAdmin):
     list_display_links = ('id', 'full_name')
     actions = ['export_admin_action']
 
-    def get_export_formats(self):
+    def get_export_formats(self) -> list[Any]:
         """Return available export formats for admin actions."""
         return [
             base_formats.XLSX,
@@ -65,7 +69,7 @@ class CarAdmin(ImportExportModelAdmin):
             base_formats.JSON,
         ]
 
-    def export_admin_action(self, request, queryset):
+    def export_admin_action(self, request: HttpRequest, queryset: QuerySet[Car]) -> HttpResponse:
         """Custom export action with formatted XLSX (used in admin)."""
         resource = self.resource_class()
         dataset = resource.export(queryset)
@@ -109,12 +113,12 @@ class CarAdmin(ImportExportModelAdmin):
         return response
 
     @admin.display(description=_('Полное название'))
-    def full_name(self, obj):
+    def full_name(self, obj: Car) -> str:
         """Display full car name in admin list."""
         return f'{obj.brand} {obj.model} ({obj.year})'
 
     @admin.display(description=_('Цена'))
-    def price_formatted(self, obj):
+    def price_formatted(self, obj: Car) -> str:
         """Format price with currency in admin."""
         return f'{obj.price} ₽'
     price_formatted.short_description = _('Цена')
@@ -144,7 +148,7 @@ class FavoriteAdmin(admin.ModelAdmin):
     raw_id_fields = ('user', 'car')
 
     @admin.display(description=_('Объявление'))
-    def car_link(self, obj):
+    def car_link(self, obj: Favorite) -> str:
         """Link to car in admin for Favorite."""
         if obj.car_id:
             try:

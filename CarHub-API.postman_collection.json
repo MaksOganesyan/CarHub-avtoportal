@@ -1,0 +1,133 @@
+{
+  "info": {
+    "_postman_id": "carhub-kursach-grade3",
+    "name": "CarHub API (Kursach Grade 3)",
+    "description": "Коллекция запросов для тестирования CarHub API. Покрывает основные требования задания: фильтрацию, аннотации, SerializerMethodField, role-based logic, custom actions.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "List Cars (with filters)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/cars/?brand=1&price_min=500000&price_max=2000000&year_min=2020",
+          "host": ["{{base_url}}"],
+          "path": ["api", "cars"],
+          "query": [
+            {"key": "brand", "value": "1"},
+            {"key": "price_min", "value": "500000"},
+            {"key": "price_max", "value": "2000000"},
+            {"key": "year_min", "value": "2020"}
+          ]
+        },
+        "description": "Список активных объявлений + фильтры через CarFilter (brand, price range, year). Демонстрирует пункт 6 задания."
+      }
+    },
+    {
+      "name": "List Cars - My (for authenticated seller)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/cars/?my=1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "cars"],
+          "query": [{"key": "my", "value": "1"}]
+        },
+        "description": "Свои объявления продавца (требует авторизации session или Basic Auth)."
+      }
+    },
+    {
+      "name": "Car Detail (with SerializerMethodField)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/cars/1/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "cars", "1"]
+        },
+        "description": "Детальное объявление. В ответе должны присутствовать photo_count, main_photo, is_favorited (SerializerMethodField + context)."
+      }
+    },
+    {
+      "name": "Create Car (as seller - should go to moderation)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"brand\": 1,\n  \"model\": 1,\n  \"year\": 2023,\n  \"price\": 1850000,\n  \"mileage\": 15000,\n  \"description\": \"Отличный автомобиль, один владелец\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/cars/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "cars"]
+        },
+        "description": "Создание объявления. Для обычного пользователя/продавца должно принудительно уйти в статус moderation (пункт 2)."
+      }
+    },
+    {
+      "name": "Increment Views (custom action)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/cars/1/view/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "cars", "1", "view"]
+        },
+        "description": "Кастомное действие /view/ — увеличивает счётчик просмотров."
+      }
+    },
+    {
+      "name": "Cheap Cars (custom action)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/cars/cheap/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "cars", "cheap"]
+        },
+        "description": "Кастомное действие /cheap/ — дешёвые машины (≤ 1 000 000)."
+      }
+    },
+    {
+      "name": "List Brands",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/brands/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "brands"]
+        }
+      }
+    },
+    {
+      "name": "Login (Basic Auth or Session)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/cars/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "cars"]
+        },
+        "description": "Для запросов требующих авторизации используй Basic Auth (username + password) или сначала залогинься через /login/ в браузере и используй session cookies."
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    }
+  ]
+}
