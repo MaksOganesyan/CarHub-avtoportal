@@ -7,7 +7,7 @@ from .serializers import CarSerializer, BrandSerializer
 
 
 class CarViewSet(viewsets.ModelViewSet):
-    queryset = Car.objects.filter(status='active').select_related('brand', 'model', 'user')
+    queryset = Car.objects.filter(status=Car.ACTIVE).select_related('brand', 'model', 'user')
     serializer_class = CarSerializer
 
     filterset_fields = ['brand', 'model', 'year', 'status', 'price']
@@ -22,12 +22,12 @@ class CarViewSet(viewsets.ModelViewSet):
 
         if 'cheap_new_not_moderation' in self.request.query_params:
             qs = qs.filter(
-                Q(price__lte=1500000) & Q(year__gte=2024) & ~Q(status='moderation')
+                Q(price__lte=1500000) & Q(year__gte=2024) & ~Q(status=Car.MODERATION)
             )
 
         if 'old_or_expensive_not_sold' in self.request.query_params:
             qs = qs.filter(
-                (Q(year__lt=2015) | Q(price__gt=3000000)) & ~Q(status='sold')
+                (Q(year__lt=2015) | Q(price__gt=3000000)) & ~Q(status=Car.SOLD)
             )
 
         return qs

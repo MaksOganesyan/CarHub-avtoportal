@@ -17,6 +17,7 @@
             <div class="nav-links">
                 {% if user.is_authenticated %}
                     <span>Привет, {{ user.username }}!</span>
+                    <a href="{% url 'core:favorites' %}">Избранное</a>
                     <a href="{% url 'core:logout' %}">Выйти</a>
                 {% else %}
                     <a href="{% url 'core:login' %}">Войти</a>

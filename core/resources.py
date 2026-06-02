@@ -19,9 +19,9 @@ class CarResource(resources.ModelResource):
         skip_unchanged = True
         report_skipped = False
 
-    # 1.фильтр  активных
+    # 1. фильтр только активных (для отчёта)
     def get_export_queryset(self):
-        return self.Meta.model.objects.filter(status='active')
+        return self.Meta.model.objects.filter(status=self.Meta.model.ACTIVE)
 
     # 2 цена с форматированием (1 200 000 ₽ вместо 1200000)
     def dehydrate_price(self, car):
@@ -29,15 +29,15 @@ class CarResource(resources.ModelResource):
 
     # 3 статус вместо технического значения
     def dehydrate_status(self, car):
-        if car.status == 'active':
+        if car.status == self.Meta.model.ACTIVE:
             return 'Активно'
-        elif car.status == 'draft':
-            return 'Черновик'
+        elif car.status == self.Meta.model.SOLD:
+            return 'Продано'
         else:
             return 'На модерации'
 
     # 4 кастомное поле — имя продавца
-    def dehydrate_user_username(self, car):
+    def dehydrate_user__username(self, car):
         if car.user:
             return car.user.username.upper()
         return '— (удалённый пользователь)'

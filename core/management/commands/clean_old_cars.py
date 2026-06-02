@@ -9,5 +9,5 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         old_date = timezone.now() - timedelta(days=365)
-        deleted = Car.objects.filter(status='sold', created_at__lt=old_date).delete()
+        deleted = Car.objects.filter(status=Car.SOLD, created_at__lt=old_date).delete()
         self.stdout.write(self.style.SUCCESS(f'Удалено {deleted[0]} старых объявлений'))

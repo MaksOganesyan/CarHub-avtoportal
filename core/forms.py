@@ -24,3 +24,10 @@ class CarForm(forms.ModelForm):
         widgets = {
             'description': forms.Textarea(attrs={'rows': 4}),
         }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        # Обычным пользователям не даём выбирать статус в форме
+        if user and not user.is_staff:
+            self.fields.pop('status', None)

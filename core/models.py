@@ -89,10 +89,14 @@ class Model(models.Model):
 
 class Car(models.Model):
     # Объявления о продаже автомобилей
+    MODERATION = 'moderation'
+    ACTIVE = 'active'
+    SOLD = 'sold'
+
     STATUS_CHOICES = (
-        ('moderation', _('На модерации')),
-        ('active', _('Активно')),
-        ('sold', _('Продано')),
+        (MODERATION, _('На модерации')),
+        (ACTIVE, _('Активно')),
+        (SOLD, _('Продано')),
     )
 
     user = models.ForeignKey(

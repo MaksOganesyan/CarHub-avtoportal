@@ -41,6 +41,18 @@
     </div>
     {% endif %}
 
+    {# Кнопка "В избранное" для авторизованных пользователей #}
+    {% if user.is_authenticated %}
+    <div style="margin-top: 1.5rem;">
+        <form method="post" action="{% url 'core:toggle_favorite' car.pk %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" style="background: {% if is_favorited %}#e74c3c{% else %}#27ae60{% endif %}; color: white; border: none; padding: 0.6rem 1.1rem; border-radius: 6px; cursor: pointer; font-size: 1rem;">
+                {% if is_favorited %}♥ Убрать из избранного{% else %}♡ Добавить в избранное{% endif %}
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
     <a href="{% url 'core:car_list' %}" style="display: inline-block; margin-top: 2rem; color: #3498db;">← Назад к списку</a>
 </div>
 {% endblock %}

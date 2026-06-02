@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse
+from django.urls import reverse
 from .models import User, Brand, Model, Car, CarPhoto, Favorite, ForumPost
 from import_export.admin import ImportExportModelAdmin
 from .resources import CarResource
@@ -54,6 +55,7 @@ class CarAdmin(ImportExportModelAdmin):
     inlines = [CarPhotoInline]
     raw_id_fields = ('user', 'created_by')
     list_display_links = ('id', 'full_name')
+    actions = ['export_admin_action']
 
     def get_export_formats(self):
         return [
@@ -139,17 +141,23 @@ class FavoriteAdmin(admin.ModelAdmin):
 
     @admin.display(description=_('Объявление'))
     def car_link(self, obj):
-        return format_html('<a href="{url}">{text}</a>',
-                           url=obj.car.get_admin_url() if hasattr(obj.car, 'get_admin_url') else '#',
-                           text=str(obj.car))
+        if obj.car_id:
+            try:
+                url = reverse('admin:core_car_change', args=[obj.car_id])
+                return format_html('<a href="{}">{}</a>', url, str(obj.car))
+            except Exception:
+                pass
+        return str(obj.car) or '—'
     car_link.short_description = _('Автомобиль')
 
 
-@admin.register(ForumPost)
-class ForumPostAdmin(admin.ModelAdmin):
-    list_display = ('title', 'user', 'parent', 'created_at')
-    list_filter = ('created_at', 'user')
-    search_fields = ('title', 'content', 'user__username')
-    readonly_fields = ('created_at', 'updated_at')
-    date_hierarchy = 'created_at'
-    raw_id_fields = ('user', 'parent')
+# ForumPost — модель есть (по ER-диаграмме), но полноценного UI/логики форума не реализовано.
+# Скрываем из админки, чтобы не вводить в заблуждение (можно раскомментировать при необходимости).
+# @admin.register(ForumPost)
+# class ForumPostAdmin(admin.ModelAdmin):
+#     list_display = ('title', 'user', 'parent', 'created_at')
+#     list_filter = ('created_at', 'user')
+#     search_fields = ('title', 'content', 'user__username')
+#     readonly_fields = ('created_at', 'updated_at')
+#     date_hierarchy = 'created_at'
+#     raw_id_fields = ('user', 'parent')
