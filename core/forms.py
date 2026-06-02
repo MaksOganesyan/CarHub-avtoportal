@@ -4,13 +4,6 @@ from .models import User, Car
 
 
 class CustomUserCreationForm(UserCreationForm):
-    """
-    Форма регистрации.
-    - Роль не показывается обычному пользователю.
-    - При публичной регистрации всегда присваивается роль 'seller' (Продавец).
-    - Админ и модератор могут назначаться только суперпользователем через админку.
-    - Все подсказки и лейблы на русском.
-    """
     class Meta:
         model = User
         fields = ('username', 'email', 'phone', 'password1', 'password2')
@@ -25,9 +18,9 @@ class CustomUserCreationForm(UserCreationForm):
             'phone': 'В формате +7 (XXX) XXX-XX-XX или без форматирования.',
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
+        """Устанавливает русские лейблы и подсказки для полей паролей."""
         super().__init__(*args, **kwargs)
-        # Русские лейблы и подсказки для паролей (они не в Meta, т.к. от родителя)
         if 'password1' in self.fields:
             self.fields['password1'].label = 'Пароль'
             self.fields['password1'].help_text = 'Пароль должен содержать минимум 8 символов. Не используйте слишком простые пароли.'
@@ -35,11 +28,11 @@ class CustomUserCreationForm(UserCreationForm):
             self.fields['password2'].label = 'Подтверждение пароля'
             self.fields['password2'].help_text = 'Введите тот же пароль ещё раз для подтверждения.'
 
-    def save(self, commit=True):
+    def save(self, commit: bool = True) -> User:
+        """
+        Сохраняет пользователя и принудительно устанавливает роль SELLER при публичной регистрации.
+        """
         user = super().save(commit=False)
-        # Публичная регистрация → всегда продавец.
-        # "Обычный пользователь" (buyer) здесь не выбирается.
-        # Админ/модератор назначаются только через админ-панель суперпользователем.
         user.role = User.SELLER
         if commit:
             user.save()
@@ -49,9 +42,14 @@ class CustomUserCreationForm(UserCreationForm):
 class CustomAuthenticationForm(AuthenticationForm):
     class Meta:
         model = User
-
-
 class CarForm(forms.ModelForm):
+    """
+    Форма для создания/редактирования объявлений об автомобилях.
+
+    Скрывает поле статуса для не-staff пользователей (продавцов).
+    Статус принудительно устанавливается во view/serializer (moderation при создании).
+    """
+
     class Meta:
         model = Car
         fields = [
@@ -61,10 +59,11 @@ class CarForm(forms.ModelForm):
         widgets = {
             'description': forms.Textarea(attrs={'rows': 4}),
         }
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
+        """
+        Инициализирует форму и убирает поле статуса для обычных пользователей.
+        """
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        # Обычным пользователям не даём выбирать статус в форме
         if user and not user.is_staff:
             self.fields.pop('status', None)

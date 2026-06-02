@@ -5,7 +5,6 @@ from simple_history.models import HistoricalRecords
 
 
 class User(AbstractUser):
-    # Юзеры
     USER = 'user'
     SELLER = 'seller'
     MODERATOR = 'moderator'
@@ -20,7 +19,7 @@ class User(AbstractUser):
     role = models.CharField(
         max_length=20,
         choices=ROLE_CHOICES,
-        default=SELLER,   # По умолчанию — продавец (регистрация через форму)
+        default=SELLER,
         verbose_name=_('Роль')
     )
     phone = models.CharField(
@@ -40,7 +39,8 @@ class User(AbstractUser):
         verbose_name = _('Пользователь')
         verbose_name_plural = _('Пользователи')
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Возвращает человекочитаемое представление пользователя."""
         return self.get_full_name() or self.username
 
 
@@ -61,7 +61,8 @@ class Brand(models.Model):
         verbose_name_plural = _('Марки автомобилей')
         ordering = ['name']
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Возвращает название марки."""
         return self.name
 
 
@@ -88,7 +89,8 @@ class Model(models.Model):
         unique_together = ('brand', 'name')
         ordering = ['name']
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Возвращает название модели."""
         return self.name
 
 
@@ -179,7 +181,8 @@ class Car(models.Model):
         verbose_name_plural = _('Объявления об автомобилях')
         ordering = ['-created_at']
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Возвращает краткое описание объявления об автомобиле."""
         return f'{self.model} ({self.year}) - {self.price} ₽'
 
 
@@ -208,7 +211,8 @@ class CarPhoto(models.Model):
         verbose_name = _('Фотография автомобиля')
         verbose_name_plural = _('Фотографии автомобилей')
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Возвращает описание фотографии."""
         return f'Фото для {self.car} ({self.created_at.date()})'
 
 
@@ -236,7 +240,8 @@ class Favorite(models.Model):
         verbose_name_plural = _('Избранные объявления')
         unique_together = ('user', 'car')
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Возвращает представление избранного."""
         return f'{self.user} ♥ {self.car}'
 
 
@@ -277,5 +282,6 @@ class ForumPost(models.Model):
         verbose_name_plural = _('Посты на форуме')
         ordering = ['-created_at']
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Возвращает заголовок поста на форуме или информацию об ответе."""
         return self.title or f'Ответ от {self.user} ({self.created_at.date()})'

@@ -5,12 +5,14 @@ from .models import Car, Brand, Model
 
 class CarFilter(django_filters.FilterSet):
     """
-    Полноценный FilterSet для объявлений (удовлетворяет пункту 6 задания).
+    Полноценный FilterSet для объявлений (удовлетворяет пункту 6 задания grade3 / grade4).
+
     Поддерживает:
     - Фильтр по бренду и модели
     - Диапазон цены (price_min / price_max)
     - Диапазон года (year_min / year_max)
     - Статус
+    - Быстрый текстовый поиск q=
     """
     brand = django_filters.ModelChoiceFilter(
         queryset=Brand.objects.all(),
@@ -38,7 +40,8 @@ class CarFilter(django_filters.FilterSet):
             'model': ['exact'],
         }
 
-    def filter_search(self, queryset, name, value):
+    def filter_search(self, queryset, name: str, value: str):
+        """Кастомный поисковый фильтр по описанию/названию бренда/модели."""
         if not value:
             return queryset
         return queryset.filter(

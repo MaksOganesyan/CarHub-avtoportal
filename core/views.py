@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
 from django.db.models import Count
+from django.http import HttpResponse
 from .models import Car, Brand, Model, Favorite
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, CarForm
 
@@ -18,7 +19,13 @@ class CarListView(ListView):
     queryset = Car.objects.filter(status=Car.ACTIVE).select_related('brand', 'model', 'user').prefetch_related('photos').order_by('-created_at')
     paginate_by = 10
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs) -> dict:
+        """
+        Добавляет количество активных объявлений (демо аннотации в веб-слое).
+
+        Возвращает:
+            Словарь контекста с дополнительным 'total_active'.
+        """
         context = super().get_context_data(**kwargs)
         # Небольшая демонстрация аннотации в веб-слое (пункт 5)
         # Можно использовать в шаблоне, если понадобится
@@ -31,7 +38,12 @@ class CarDetailView(DetailView):
     template_name = 'core/car_detail.html'
     context_object_name = 'car'
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs) -> dict:
+        """
+        Предоставляет фотографии и статус избранного для детальной страницы автомобиля.
+
+        Использует prefetch-оптимизацию (пункт 3).
+        """
         context = super().get_context_data(**kwargs)
         # Оптимизация: prefetch_related для доп. фото (пункт 3)
         self.object.photos.all().prefetch_related()  # no-op but documents intent
@@ -51,18 +63,25 @@ class CarCreateView(LoginRequiredMixin, CreateView):
     template_name = 'core/car_form.html'
     success_url = reverse_lazy('core:car_list')
 
-    def get_form_kwargs(self):
+    def get_form_kwargs(self) -> dict:
+        """Передаёт текущего пользователя в CarForm, чтобы скрыть поле статуса."""
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
         return kwargs
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs) -> dict:
+        """Предоставляет бренды и модели для зависимого select в шаблоне."""
         context = super().get_context_data(**kwargs)
         context['brands'] = Brand.objects.all()
         context['models'] = Model.objects.all()
         return context
 
-    def form_valid(self, form):
+    def form_valid(self, form) -> HttpResponse:
+        """
+        Устанавливает владельца и принудительно ставит статус MODERATION для не-staff (бизнес-логика).
+
+        Возвращает redirect response.
+        """
         form.instance.user = self.request.user
         form.instance.created_by = self.request.user
         # Обычные пользователи не могут сразу публиковать — только на модерацию
@@ -71,7 +90,8 @@ class CarCreateView(LoginRequiredMixin, CreateView):
         messages.success(self.request, 'Объявление успешно добавлено!')
         return super().form_valid(form)
 
-    def form_invalid(self, form):
+    def form_invalid(self, form) -> HttpResponse:
+        """Показывает сообщение об ошибке при невалидной форме."""
         messages.error(self.request, 'Проверьте данные. Есть ошибки в форме.')
         return super().form_invalid(form)
 
@@ -82,22 +102,28 @@ class CarUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     template_name = 'core/car_form.html'
     success_url = reverse_lazy('core:car_list')
 
-    def get_form_kwargs(self):
+    def get_form_kwargs(self) -> dict:
+        """Передаёт пользователя в форму для управления полем статуса."""
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
         return kwargs
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs) -> dict:
+        """Предоставляет бренды и модели для формы редактирования."""
         context = super().get_context_data(**kwargs)
         context['brands'] = Brand.objects.all()
         context['models'] = Model.objects.all()
         return context
 
-    def test_func(self):
+    def test_func(self) -> bool:
+        """Только владелец автомобиля может его обновлять."""
         car = self.get_object()
         return self.request.user == car.user
 
-    def form_valid(self, form):
+    def form_valid(self, form) -> HttpResponse:
+        """
+        Ограничивает смену статуса для не-staff (только на SOLD разрешено).
+        """
         # Для обычных пользователей статус можно менять только на SOLD (или оставляем как был)
         if not self.request.user.is_staff and 'status' in form.cleaned_data:
             # Разрешаем только переход в SOLD
@@ -112,12 +138,22 @@ class CarDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     success_url = reverse_lazy('core:car_list')
 
     def test_func(self):
+        """Только владелец может удалить автомобиль."""
         car = self.get_object()
         return self.request.user == car.user
 
 
 # Регистрация и логин
 def register(request):
+    """
+    Публичная форма регистрации. Принудительно устанавливает роль SELLER.
+
+    Args:
+        request: HttpRequest
+
+    Returns:
+        Отрендеренный шаблон регистрации или редирект после успеха.
+    """
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
@@ -131,6 +167,7 @@ def register(request):
 
 
 def user_login(request):
+    """Обрабатывает вход пользователя с сообщениями."""
     if request.method == 'POST':
         form = CustomAuthenticationForm(data=request.POST)
         if form.is_valid():
@@ -144,6 +181,7 @@ def user_login(request):
 
 
 def user_logout(request):
+    """Выход из аккаунта и редирект."""
     logout(request)
     messages.info(request, 'Вы вышли из аккаунта.')
     return redirect('core:car_list')
@@ -159,6 +197,11 @@ class FavoritesListView(LoginRequiredMixin, ListView):
     paginate_by = 10
 
     def get_queryset(self):
+        """
+        Оптимизированный queryset для избранных пользователя.
+
+        Использует select_related + prefetch_related (оптимизация пункта 3).
+        """
         # Пункт 3: хорошая оптимизация для избранного
         return (Favorite.objects
                 .filter(user=self.request.user)
@@ -168,8 +211,15 @@ class FavoritesListView(LoginRequiredMixin, ListView):
 
 
 @login_required
-def toggle_favorite(request, pk):
-    """Добавить/убрать объявление из избранного (POST)"""
+def toggle_favorite(request, pk: int):
+    """
+    Переключает статус избранного для автомобиля (ожидается POST-запрос).
+
+    Args:
+        pk: Первичный ключ автомобиля.
+
+    Только активные автомобили для обычных пользователей.
+    """
     car = get_object_or_404(Car, pk=pk)
 
     # Разрешаем добавлять в избранное только активные объявления

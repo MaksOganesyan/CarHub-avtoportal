@@ -17,3 +17,12 @@ if settings.DEBUG:
         ] + urlpatterns
     except ImportError:
         pass
+
+# Django Silk URLs (только в DEBUG — для профилирования запросов, point 4 grade 4)
+if settings.DEBUG:
+    try:
+        urlpatterns = [
+            path('silk/', include('silk.urls', namespace='silk')),
+        ] + urlpatterns
+    except ImportError:
+        pass

@@ -58,6 +58,7 @@ class CarAdmin(ImportExportModelAdmin):
     actions = ['export_admin_action']
 
     def get_export_formats(self):
+        """Return available export formats for admin actions."""
         return [
             base_formats.XLSX,
             base_formats.CSV,
@@ -65,6 +66,7 @@ class CarAdmin(ImportExportModelAdmin):
         ]
 
     def export_admin_action(self, request, queryset):
+        """Custom export action with formatted XLSX (used in admin)."""
         resource = self.resource_class()
         dataset = resource.export(queryset)
 
@@ -108,10 +110,12 @@ class CarAdmin(ImportExportModelAdmin):
 
     @admin.display(description=_('Полное название'))
     def full_name(self, obj):
+        """Display full car name in admin list."""
         return f'{obj.brand} {obj.model} ({obj.year})'
 
     @admin.display(description=_('Цена'))
     def price_formatted(self, obj):
+        """Format price with currency in admin."""
         return f'{obj.price} ₽'
     price_formatted.short_description = _('Цена')
 
@@ -141,6 +145,7 @@ class FavoriteAdmin(admin.ModelAdmin):
 
     @admin.display(description=_('Объявление'))
     def car_link(self, obj):
+        """Link to car in admin for Favorite."""
         if obj.car_id:
             try:
                 url = reverse('admin:core_car_change', args=[obj.car_id])
@@ -151,13 +156,4 @@ class FavoriteAdmin(admin.ModelAdmin):
     car_link.short_description = _('Автомобиль')
 
 
-# ForumPost — модель есть (по ER-диаграмме), но полноценного UI/логики форума не реализовано.
-# Скрываем из админки, чтобы не вводить в заблуждение (можно раскомментировать при необходимости).
-# @admin.register(ForumPost)
-# class ForumPostAdmin(admin.ModelAdmin):
-#     list_display = ('title', 'user', 'parent', 'created_at')
-#     list_filter = ('created_at', 'user')
-#     search_fields = ('title', 'content', 'user__username')
-#     readonly_fields = ('created_at', 'updated_at')
-#     date_hierarchy = 'created_at'
-#     raw_id_fields = ('user', 'parent')
+

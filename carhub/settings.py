@@ -80,6 +80,7 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
@@ -148,16 +149,22 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Используется чтобы показать эффект от select_related / prefetch_related
 # на страницах списка объявлений, деталки, избранного и API.
 # ==============================================
-if DEBUG:
-    INSTALLED_APPS += ['debug_toolbar']
+import sys
+TESTING = 'test' in sys.argv
 
-    # Вставляем middleware после CommonMiddleware (стандартная рекомендация)
-    # Позиция важна: раньше, чем GZip, Csrf и т.д.
+if DEBUG and not TESTING:
+    INSTALLED_APPS += ['debug_toolbar', 'silk']
+
+    # Middleware order for debug tools:
+    # debug_toolbar after Common, silk early for profiling.
     try:
         common_idx = MIDDLEWARE.index('django.middleware.common.CommonMiddleware')
         MIDDLEWARE.insert(common_idx + 1, 'debug_toolbar.middleware.DebugToolbarMiddleware')
     except ValueError:
         MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
+
+    # Insert Silk middleware near the top (after security/session)
+    MIDDLEWARE.insert(1, 'silk.middleware.SilkyMiddleware')
 
     # INTERNAL_IPS — без этого тулбар не покажется
     INTERNAL_IPS = ['127.0.0.1', 'localhost']
@@ -177,3 +184,12 @@ if DEBUG:
         'SHOW_TOOLBAR_CALLBACK': lambda request: DEBUG,
         'RESULTS_CACHE_SIZE': 100,
     }
+
+    # Silk configuration for profiling
+    SILKY_PYTHON_PROFILER = True  # enable Python profiler
+    SILKY_AUTHENTICATION = False  # allow all in DEBUG (restrict in prod)
+    SILKY_AUTHORISATION = False
+    SILKY_META = True  # store meta data
+    SILKY_INTERCEPT_PERCENT = 100  # profile all requests in dev
+
+
