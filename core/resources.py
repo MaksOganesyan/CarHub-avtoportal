@@ -25,17 +25,17 @@ class CarResource(resources.ModelResource):
 
     # 1. фильтр только активных (для отчёта)
     def get_export_queryset(self) -> QuerySet[Car]:
-        """Return queryset of active cars for export reports."""
+        """Возвращает queryset активных авто для отчётов экспорта."""
         return self.Meta.model.objects.filter(status=self.Meta.model.ACTIVE)
 
     # 2 цена с форматированием (1 200 000 ₽ вместо 1200000)
     def dehydrate_price(self, car: Car) -> str:
-        """Return formatted price string for export."""
+        """Возвращает отформатированную строку цены для экспорта."""
         return f"{int(car.price):,} ₽"
 
     # 3 статус вместо технического значения
     def dehydrate_status(self, car: Car) -> str:
-        """Return human-readable status label for export."""
+        """Возвращает читаемую метку статуса для экспорта."""
         if car.status == self.Meta.model.ACTIVE:
             return 'Активно'
         elif car.status == self.Meta.model.SOLD:
@@ -44,14 +44,14 @@ class CarResource(resources.ModelResource):
 
     # 4 кастомное поле — имя продавца
     def dehydrate_user__username(self, car: Car) -> str:
-        """Return uppercase seller username for export."""
+        """Возвращает username продавца в UPPER для экспорта."""
         if car.user:
             return car.user.username.upper()
         return '— (удалённый пользователь)'
 
     # 5: — короткое описание (первые 50 символов)
     def dehydrate_full_description(self, car: Car) -> str:
-        """Return a shortened description for export."""
+        """Возвращает укороченное описание для экспорта."""
         if car.description:
             return car.description[:50] + '...' if len(car.description) > 50 else car.description
         return 'Описание отсутствует'

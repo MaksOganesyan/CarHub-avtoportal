@@ -113,12 +113,18 @@ class CarSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data: dict) -> Car:
         """
-        Create car and force MODERATION for non-staff users.
+        Создаёт автомобиль и принудительно ставит MODERATION для обычных пользователей.
 
-        Uses context to get the authenticated user.
+        Использует context['request'].user.
         """
         validated_data['user'] = self.context['request'].user
         # Обычные пользователи не могут сразу публиковать
         if not self.context['request'].user.is_staff:
             validated_data['status'] = Car.MODERATION
-        return super().create(validated_data)
+        car = super().create(validated_data)
+        # Асинхронные задачи
+        from .tasks import send_car_submitted_for_moderation, process_car_image
+        send_car_submitted_for_moderation.delay(car.id)
+        if car.main_image:
+            process_car_image.delay(car.id)
+        return car

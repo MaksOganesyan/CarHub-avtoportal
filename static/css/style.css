@@ -161,3 +161,115 @@ form button[type="submit"] {
 form button[type="submit"]:hover {
     background-color: #219a52;
 }
+
+.auth-card {
+    max-width: 480px;
+    margin: 2rem auto;
+    background: white;
+    padding: 2rem;
+    border-radius: 16px;
+    box-shadow: 0 14px 30px rgba(0,0,0,0.08);
+}
+
+.auth-title {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: #2c3e50;
+    font-size: 2rem;
+}
+
+.auth-form {
+    display: grid;
+    gap: 1rem;
+}
+
+.btn-block {
+    width: 100%;
+}
+
+.link-primary {
+    color: #3498db;
+    transition: color 0.3s;
+}
+
+.link-primary:hover {
+    color: #1d6fa5;
+}
+
+.auth-note {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.auth-divider {
+    text-align: center;
+    margin-top: 1.75rem;
+    border-top: 1px solid #eee;
+    padding-top: 1.25rem;
+}
+
+.auth-divider p {
+    margin-bottom: 0.75rem;
+    color: #666;
+}
+
+.auth-divider .socialaccount-providers {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.auth-divider .socialaccount-provider {
+    min-width: 140px;
+}
+
+.btn-primary {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 0.8rem 2rem;
+    font-size: 1.1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.btn-primary:hover {
+    background-color: #2874b5;
+}
+
+.auth-text {
+    text-align: center;
+    color: #555;
+    line-height: 1.75;
+    margin-bottom: 1.5rem;
+}
+
+.messages-container {
+    max-width: 680px;
+    margin: 1rem auto;
+    padding: 1rem 1.25rem;
+    background: #f7f9fc;
+    border: 1px solid #dfe6ef;
+    border-radius: 10px;
+}
+
+.messages-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.message {
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+}
+
+.message.error {
+    color: #c0392b;
+}
+
+.message.success {
+    color: #27ae60;
+}

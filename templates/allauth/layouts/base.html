@@ -1,0 +1,20 @@
+{% extends 'core/base.html' %}
+{% load i18n %}
+
+{% block title %}
+    {% block head_title %}{% endblock head_title %}
+{% endblock %}
+
+{% block content %}
+    {% if messages %}
+        <div class="messages-container">
+            <ul class="messages-list">
+                {% for message in messages %}
+                    <li class="message message-{{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    {% block body %}{% endblock body %}
+{% endblock %}

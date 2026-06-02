@@ -87,8 +87,14 @@ class CarCreateView(LoginRequiredMixin, CreateView):
         # Обычные пользователи не могут сразу публиковать — только на модерацию
         if not self.request.user.is_staff:
             form.instance.status = Car.MODERATION
+        response = super().form_valid(form)
+        # Асинхронные задачи Celery (пункт 1 на отлично)
+        from .tasks import send_car_submitted_for_moderation, process_car_image
+        send_car_submitted_for_moderation.delay(self.object.id)
+        if self.object.main_image:
+            process_car_image.delay(self.object.id)
         messages.success(self.request, 'Объявление успешно добавлено!')
-        return super().form_valid(form)
+        return response
 
     def form_invalid(self, form) -> HttpResponse:
         """Показывает сообщение об ошибке при невалидной форме."""
@@ -107,6 +113,11 @@ class CarUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
         return kwargs
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        self._previous_status = obj.status
+        return obj
 
     def get_context_data(self, **kwargs) -> dict:
         """Предоставляет бренды и модели для формы редактирования."""
@@ -129,7 +140,12 @@ class CarUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             # Разрешаем только переход в SOLD
             if form.cleaned_data['status'] != Car.SOLD:
                 form.instance.status = self.object.status  # не даём менять на active/moderation
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        # Если одобрили (с moderation на active) — уведомляем продавца асинхронно
+        if self.object.status == Car.ACTIVE and getattr(self, '_previous_status', None) == Car.MODERATION:
+            from .tasks import send_car_approved_notification
+            send_car_approved_notification.delay(self.object.id)
+        return response
 
 
 class CarDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
@@ -158,7 +174,11 @@ def register(request):
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            login(request, user)
+            # Явно указываем backend из-за нескольких AUTHENTICATION_BACKENDS (allauth + ModelBackend)
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+            # Асинхронное приветственное письмо
+            from .tasks import send_welcome_email
+            send_welcome_email.delay(user.id)
             messages.success(request, 'Регистрация прошла успешно!')
             return redirect('core:car_list')
     else:
@@ -172,7 +192,8 @@ def user_login(request):
         form = CustomAuthenticationForm(data=request.POST)
         if form.is_valid():
             user = form.get_user()
-            login(request, user)
+            # Явно указываем backend из-за нескольких AUTHENTICATION_BACKENDS (allauth + ModelBackend)
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
             messages.success(request, f'Добро пожаловать, {user.username}!')
             return redirect('core:car_list')
     else:

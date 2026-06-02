@@ -62,7 +62,7 @@ class CarAdmin(ImportExportModelAdmin):
     actions = ['export_admin_action']
 
     def get_export_formats(self) -> list[Any]:
-        """Return available export formats for admin actions."""
+        """Возвращает доступные форматы экспорта для действия в админке."""
         return [
             base_formats.XLSX,
             base_formats.CSV,
@@ -70,7 +70,7 @@ class CarAdmin(ImportExportModelAdmin):
         ]
 
     def export_admin_action(self, request: HttpRequest, queryset: QuerySet[Car]) -> HttpResponse:
-        """Custom export action with formatted XLSX (used in admin)."""
+        """Кастомное действие экспорта в XLSX с форматированием (в админке)."""
         resource = self.resource_class()
         dataset = resource.export(queryset)
 
@@ -114,12 +114,12 @@ class CarAdmin(ImportExportModelAdmin):
 
     @admin.display(description=_('Полное название'))
     def full_name(self, obj: Car) -> str:
-        """Display full car name in admin list."""
+        """Отображает полное название авто в списке админки."""
         return f'{obj.brand} {obj.model} ({obj.year})'
 
     @admin.display(description=_('Цена'))
     def price_formatted(self, obj: Car) -> str:
-        """Format price with currency in admin."""
+        """Форматирует цену с валютой в админке."""
         return f'{obj.price} ₽'
     price_formatted.short_description = _('Цена')
 

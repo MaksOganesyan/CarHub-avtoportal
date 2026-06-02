@@ -8,5 +8,56 @@ services:
       - "8000:8000"
     environment:
       - DEBUG=1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - EMAIL_HOST=mailhog
+      - EMAIL_PORT=1025
+      - EMAIL_USE_TLS=0
+    depends_on:
+      - redis
+      - mailhog
     stdin_open: true
     tty: true
+
+  # Для деплоя на сервер (пункт 3 на отлично):
+  # - Используйте production settings (DEBUG=False, SECRET_KEY из env, ALLOWED_HOSTS)
+  # - Замените CMD в Dockerfile на gunicorn
+  # - Добавьте postgres в compose для prod
+  # - Используйте nginx для статики и reverse proxy
+  # - Пример: docker-compose -f docker-compose.prod.yml up -d
+  # Полная подготовка: см. docs/Deploy.md (создайте при необходимости)
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+
+  celery:
+    build: .
+    command: celery -A carhub worker --loglevel=info
+    volumes:
+      - .:/app
+    environment:
+      - DEBUG=1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - web
+
+  celery-beat:
+    build: .
+    command: celery -A carhub beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/app
+    environment:
+      - DEBUG=1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - web
+      - celery

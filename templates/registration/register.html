@@ -3,15 +3,19 @@
 {% block title %}Регистрация{% endblock %}
 
 {% block content %}
-<div style="max-width: 480px; margin: 2rem auto; background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-    <h2 style="text-align: center; margin-bottom: 1.5rem; color: #2c3e50;">Регистрация</h2>
-    <form method="post">
+<div class="auth-card">
+    <h2 class="auth-title">Регистрация</h2>
+    <form method="post" class="auth-form">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit" style="background-color: #27ae60; color: white; border: none; padding: 0.8rem 2rem; font-size: 1.1rem; border-radius: 6px; cursor: pointer; width: 100%;">Зарегистрироваться</button>
+        <button type="submit" class="btn btn-primary btn-block">Зарегистрироваться</button>
     </form>
-    <p style="text-align: center; margin-top: 1rem;">
-        <a href="{% url 'core:login' %}" style="color: #3498db;">Уже есть аккаунт? Войти</a>
+    <p class="auth-note">
+        <a href="{% url 'core:login' %}" class="link-primary">Уже есть аккаунт? Войти</a>
     </p>
+    <div class="auth-divider">
+        <p>Или зарегистрируйтесь через:</p>
+        {% include "socialaccount/snippets/provider_list.html" with process="login" %}
+    </div>
 </div>
 {% endblock %}

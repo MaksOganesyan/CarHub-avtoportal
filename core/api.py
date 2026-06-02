@@ -34,11 +34,11 @@ class IsModeratorOrAdmin(permissions.BasePermission):
 
 class CarViewSet(viewsets.ModelViewSet):
     """
-    API for Cars.
-    - Uses FilterSet (point 6 grade 3)
-    - select_related + prefetch + annotate (point 3)
-    - SerializerMethodField and context (point 4)
-    - Role based permissions
+    ViewSet для автомобилей (API).
+    - Использует FilterSet (пункт 6 на удовлетворительно)
+    - select_related + prefetch_related + annotate (пункт 3)
+    - SerializerMethodField + context (пункт 4)
+    - Ролевая авторизация
     """
 
     queryset = Car.objects.filter(status=Car.ACTIVE).select_related('brand', 'model', 'user')
@@ -74,7 +74,7 @@ class CarViewSet(viewsets.ModelViewSet):
 
         return qs.select_related('brand', 'model', 'user').prefetch_related('photos').annotate(
             photo_count=Count('photos')
-        )
+        ).order_by('-created_at')
 
     @action(detail=False, methods=['get'], url_path='cheap')
     def cheap(self, request) -> Response:
