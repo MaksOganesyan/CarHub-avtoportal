@@ -149,7 +149,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 if not DEBUG:
     try:
-        import whitenoise  # noqa
+        import whitenoise  
         MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
         STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
     except ImportError:
@@ -175,7 +175,7 @@ if DEBUG and not TESTING:
         'RESULTS_CACHE_SIZE': 50,
     }
 
-    SILKY_PYTHON_PROFILER = False  # отключён, чтобы не конфликтовал с debug_toolbar
+    SILKY_PYTHON_PROFILER = False  
     SILKY_AUTHENTICATION = False
     SILKY_AUTHORISATION = False
     SILKY_META = True
@@ -186,15 +186,10 @@ if TESTING:
         if tool in INSTALLED_APPS:
             INSTALLED_APPS.remove(tool)
 
-# Celery configuration - full async with Redis "везде" (bare local + Docker)
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0'))
 
-# Normalize for bare local development on host:
-# If .env or compose left "redis://redis:6379/0" but we're not inside container,
-# switch to localhost so bare `python manage.py runserver` + local worker can connect.
 if 'redis://redis' in CELERY_BROKER_URL:
-    # Running on host (not inside docker container)
     if not (os.path.exists('/.dockerenv') or os.environ.get('IN_DOCKER')):
         CELERY_BROKER_URL = 'redis://localhost:6379/0'
         CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
@@ -205,25 +200,6 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
-# Чтобы иметь настоящую асинхронность и Redis + Celery "везде" (включая голый `python manage.py runserver` на Windows):
-# === Минимальный набор для bare local (рекомендую) ===
-# 1. Redis (в отдельной консоли, один раз):
-#    docker run -d --name local-redis -p 6379:6379 redis:7-alpine
-# 2. Celery worker (в отдельной консоли, держи запущенным):
-#    celery -A carhub worker --loglevel=info
-# 3. Mailhog для писем (опционально, в отдельной консоли):
-#    docker run -d -p 1025:1025 -p 8025:8025 mailhog/mailhog
-#    Письма смотри на http://localhost:8025
-#
-# Затем в основной консоли:
-#    python manage.py runserver
-#
-# Все .delay() теперь будут реально асинхронными через Redis.
-# Если Redis не поднят — получишь "Retry limit exceeded" (как было).
-#
-# Полный удобный дев-стек одной командой (всё включено: redis + mailhog + worker + beat):
-#   docker-compose up
-# (лучше всего для демо и защиты).
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
@@ -241,10 +217,7 @@ if TESTING:
     CELERY_CACHE_BACKEND = 'memory'
     EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 
-# Full asynchrony with Redis + Celery "везде" (including bare local runserver).
-# Default is redis on localhost:6379.
-# You must have Redis running for real async tasks (see instructions below).
-# Do not auto-fallback to eager in DEBUG - user wants real broker everywhere.
+
 
 SITE_ID = 1
 
@@ -294,7 +267,6 @@ if not TESTING:
     _raw_dsn = os.environ.get("GLITCHTIP_DSN")
     GLITCHTIP_DSN = None
     if _raw_dsn:
-        # Убираем возможные кавычки и пробелы из .env (частая причина, почему события не уходят)
         GLITCHTIP_DSN = _raw_dsn.strip().strip('"').strip("'")
     if GLITCHTIP_DSN and (not DEBUG or os.environ.get('FORCE_GLITCHTIP_IN_DEV')):
         try:
@@ -319,7 +291,6 @@ if not TESTING:
                 environment=os.environ.get("DJANGO_ENV", "production"),
                 send_default_pii=False,
             )
-            # Прямой print + flush — максимально надёжно видно в `docker logs` даже под gunicorn
             print(">>> GlitchTip initialized successfully with DSN (cloud)", flush=True)
             logging.getLogger("gunicorn.error").info(">>> GlitchTip initialized successfully with DSN (cloud)")
         except ImportError:
@@ -329,8 +300,7 @@ if not TESTING:
                 "Add it via 'pip install sentry-sdk' and rebuild your Docker image."
             )
 
-# Logging configuration to make sure 404s (logged by Django at WARNING level when DEBUG=False)
-# and other errors are sent to GlitchTip via the LoggingIntegration.
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

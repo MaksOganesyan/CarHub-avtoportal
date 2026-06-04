@@ -480,9 +480,8 @@ def handler404(request, exception):
         import sentry_sdk
         sentry_sdk.capture_message(msg, level="error")
     except Exception:
-        pass  # не роняем 404 если SDK не готов
+        pass  
     from django.shortcuts import render
-    # Возвращаем красивый, но минимальный 404 (templates/404.html) — без debug-трассировок при DEBUG=False
     return render(request, '404.html', status=404)
 
 
@@ -497,7 +496,7 @@ def trigger_glitchtip_error(request):
 
     В реальном продакшене этот эндпоинт можно отключить или защитить.
     """
-    # Разные типы для демонстрации: деление на ноль + явный capture
+    
     try:
         _ = 1 / 0
     except ZeroDivisionError as exc:
@@ -505,8 +504,7 @@ def trigger_glitchtip_error(request):
         try:
             import sentry_sdk
             sentry_sdk.capture_exception(exc)
-            # Также отправим кастомное сообщение
             sentry_sdk.capture_message("GlitchTip demo: trigger_glitchtip_error executed in prod (CarHub)", level="error")
         except Exception:
             pass
-        raise  # даём исключению подняться, чтобы DjangoIntegration тоже поймал
+        raise  
