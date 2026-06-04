@@ -5,32 +5,63 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
-from django.db.models import Count
 from django.http import HttpResponse
 from .models import Car, Brand, Model, Favorite
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, CarForm
+
+
+class LightweightPage:
+    """Минимальный объект страницы для пагинации без COUNT-запроса."""
+
+    def __init__(self, number: int, has_next: bool) -> None:
+        self.number = number
+        self._has_next = has_next
+
+    def has_previous(self) -> bool:
+        return self.number > 1
+
+    def has_next(self) -> bool:
+        return self._has_next
+
+    def previous_page_number(self) -> int:
+        return max(self.number - 1, 1)
+
+    def next_page_number(self) -> int:
+        return self.number + 1
 
 
 class CarListView(ListView):
     model = Car
     template_name = 'core/car_list.html'
     context_object_name = 'cars'
-    # Пункт 3: оптимизация запросов
-    queryset = Car.objects.filter(status=Car.ACTIVE).select_related('brand', 'model', 'user').prefetch_related('photos').order_by('-created_at')
-    paginate_by = 10
+    page_size = 6
+    # Пункт 3: оптимизация запросов (select_related для связанных объектов)
+    queryset = Car.objects.filter(status=Car.ACTIVE).select_related('brand', 'model', 'user').order_by('-created_at')
 
     def get_context_data(self, **kwargs) -> dict:
-        """
-        Добавляет количество активных объявлений (демо аннотации в веб-слое).
+        """Добавляет пагинацию без COUNT-запроса: берём на один объект больше."""
+        page_number = self._get_page_number()
+        offset = (page_number - 1) * self.page_size
+        items = list(self.object_list[offset:offset + self.page_size + 1])
+        cars = items[:self.page_size]
+        page_obj = LightweightPage(page_number, len(items) > self.page_size)
 
-        Возвращает:
-            Словарь контекста с дополнительным 'total_active'.
-        """
-        context = super().get_context_data(**kwargs)
-        # Небольшая демонстрация аннотации в веб-слое (пункт 5)
-        # Можно использовать в шаблоне, если понадобится
-        context['total_active'] = Car.objects.filter(status=Car.ACTIVE).count()
+        context = {
+            'cars': cars,
+            'object_list': cars,
+            'page_obj': page_obj,
+            'is_paginated': page_obj.has_previous() or page_obj.has_next(),
+            'view': self,
+        }
+        context.update(kwargs)
         return context
+
+    def _get_page_number(self) -> int:
+        """Возвращает номер страницы из query params, защищаясь от мусорных значений."""
+        try:
+            return max(int(self.request.GET.get('page', 1)), 1)
+        except (TypeError, ValueError):
+            return 1
 
 
 class CarDetailView(DetailView):
@@ -38,15 +69,17 @@ class CarDetailView(DetailView):
     template_name = 'core/car_detail.html'
     context_object_name = 'car'
 
+    def get_queryset(self):
+        # Пункт 3: оптимизация — select_related для car relations + prefetch для photos
+        return (super().get_queryset()
+                .select_related('brand', 'model', 'user')
+                .prefetch_related('photos'))
+
     def get_context_data(self, **kwargs) -> dict:
         """
         Предоставляет фотографии и статус избранного для детальной страницы автомобиля.
-
-        Использует prefetch-оптимизацию (пункт 3).
         """
         context = super().get_context_data(**kwargs)
-        # Оптимизация: prefetch_related для доп. фото (пункт 3)
-        self.object.photos.all().prefetch_related()  # no-op but documents intent
         context['photos'] = self.object.photos.all()
         # Проверяем, в избранном ли у текущего пользователя
         context['is_favorited'] = False
@@ -73,7 +106,8 @@ class CarCreateView(LoginRequiredMixin, CreateView):
         """Предоставляет бренды и модели для зависимого select в шаблоне."""
         context = super().get_context_data(**kwargs)
         context['brands'] = Brand.objects.all()
-        context['models'] = Model.objects.all()
+        # Оптимизация: select_related чтобы доступ model.brand не вызывал доп. запросы
+        context['models'] = Model.objects.select_related('brand').all()
         return context
 
     def form_valid(self, form) -> HttpResponse:
@@ -123,7 +157,8 @@ class CarUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         """Предоставляет бренды и модели для формы редактирования."""
         context = super().get_context_data(**kwargs)
         context['brands'] = Brand.objects.all()
-        context['models'] = Model.objects.all()
+        # Оптимизация: select_related чтобы доступ model.brand не вызывал доп. запросы
+        context['models'] = Model.objects.select_related('brand').all()
         return context
 
     def test_func(self) -> bool:

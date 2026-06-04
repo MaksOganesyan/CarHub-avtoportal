@@ -24,12 +24,19 @@ TESTING = 'test' in sys.argv
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-l)w@5)mnvdg*6950)+7^(75@vw6)uu!ayicvs(3%bba6w2ec80'
+SECRET_KEY = os.environ.get(
+    'SECRET_KEY',
+    'django-insecure-l)w@5)mnvdg*6950)+7^(75@vw6)uu!ayicvs(3%bba6w2ec80'
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', '1') == '1'
 
-ALLOWED_HOSTS = []
+# ALLOWED_HOSTS из .env (через запятую). В проде обязательно!
+allowed_hosts = os.environ.get('ALLOWED_HOSTS', '')
+ALLOWED_HOSTS = [h.strip() for h in allowed_hosts.split(',') if h.strip()]
+if not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = ['*'] if DEBUG else []
 
 
 # Application definition
@@ -106,6 +113,9 @@ WSGI_APPLICATION = 'carhub.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+#
+# Используем SQLite и в dev, и в проде (как просил пользователь).
+# Для продакшена db.sqlite3 монтируется через volume в docker-compose.prod.yml
 
 DATABASES = {
     'default': {
@@ -156,10 +166,27 @@ AUTH_USER_MODEL = 'core.User'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# WhiteNoise для отдачи статики в продакшене (опционально, удобно для простых деплоев).
+# Если не хочешь — используй nginx (рекомендуется для "настоящего" продакшена).
+# Чтобы включить:
+#   1. Раскомментируй whitenoise в requirements.txt
+#   2. pip install -r requirements.txt
+# WhiteNoise подключается только когда DEBUG=False и пакет установлен.
+if not DEBUG:
+    try:
+        import whitenoise  # noqa
+        # Вставляем middleware сразу после Security (важно для сжатия)
+        MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+        STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    except ImportError:
+        # whitenoise не установлен — статику будет отдавать nginx или collectstatic + volume
+        pass
+
 # ==============================================
 # django-debug-toolbar + Django Silk
-# Используются только в DEBUG для демонстрации оптимизации запросов (пункт 4 "хорошо")
-# и профилирования (select_related, N+1 и т.д.).
+# Используются в DEBUG для демонстрации SQL-запросов и профилирования.
+# Важно: Silk сам пишет служебные записи в БД. В Debug Toolbar лучше оценивать
+# предметные запросы приложения отдельно от запросов таблиц silk_*.
 # В тестах (TESTING) — полностью отключены, чтобы не ломать INSTALLED_APPS и не замедлять тесты.
 # ==============================================
 if DEBUG and not TESTING:
@@ -183,6 +210,9 @@ if DEBUG and not TESTING:
 
     DEBUG_TOOLBAR_CONFIG = {
         'SHOW_TOOLBAR_CALLBACK': lambda request: DEBUG,
+        # Для чистых демо в тулбаре (меньше шума от стектрейсов)
+        'SHOW_TEMPLATE_CONTEXT': False,
+        'RESULTS_CACHE_SIZE': 50,
     }
 
     # Silk — профилирование всех запросов в dev

@@ -19,8 +19,8 @@ if settings.DEBUG:
     except ImportError:
         pass
 
-# Django Silk URLs (только в DEBUG — для профилирования запросов, point 4 grade 4)
-if settings.DEBUG:
+# Django Silk URLs (подключаются, когда silk добавлен в INSTALLED_APPS)
+if settings.DEBUG and 'silk' in settings.INSTALLED_APPS:
     try:
         urlpatterns = [
             path('silk/', include('silk.urls', namespace='silk')),

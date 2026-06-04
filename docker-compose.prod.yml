@@ -1,4 +1,11 @@
 services:
+  # Redis — брокер для Celery
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+
+  # Основное веб-приложение (Gunicorn)
   web:
     build: .
     command: gunicorn carhub.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 4
@@ -10,30 +17,37 @@ services:
       - "8000:8000"
     volumes:
       - ./staticfiles:/app/staticfiles
+      - ./media:/app/media
+      - ./db.sqlite3:/app/db.sqlite3  
     depends_on:
       - redis
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-
+  # Celery worker (асинхронные задачи)
   celery:
     build: .
     command: celery -A carhub worker --loglevel=info
     env_file: .env.prod
     environment:
+      - DEBUG=0
       - CELERY_BROKER_URL=redis://redis:6379/0
+    volumes:
+      - ./media:/app/media
+      - ./db.sqlite3:/app/db.sqlite3
     depends_on:
       - redis
-      - web
 
+  # Celery Beat (периодические задачи)
   celery-beat:
     build: .
     command: celery -A carhub beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     env_file: .env.prod
     environment:
+      - DEBUG=0
       - CELERY_BROKER_URL=redis://redis:6379/0
+    volumes:
+      - ./db.sqlite3:/app/db.sqlite3
     depends_on:
       - redis
-      - web
+
+volumes:
+  redis_data:

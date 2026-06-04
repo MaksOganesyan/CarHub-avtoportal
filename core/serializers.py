@@ -59,7 +59,13 @@ class CarSerializer(serializers.ModelSerializer):
     # === SerializerMethodField примеры ===
 
     def get_photo_count(self, obj: Car) -> int:
-        """Количество дополнительных фотографий у объявления (SerializerMethodField)."""
+        """Количество дополнительных фотографий.
+
+        Использует аннотацию photo_count из queryset (если есть),
+        иначе fallback на .count() — избегаем лишнего запроса при оптимизированном qs.
+        """
+        if hasattr(obj, 'photo_count'):
+            return obj.photo_count
         return obj.photos.count()
 
     def get_main_photo(self, obj: Car) -> str | None:
