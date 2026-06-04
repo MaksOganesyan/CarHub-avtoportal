@@ -19,6 +19,10 @@ urlpatterns = [
     path('favorites/', views.FavoritesListView.as_view(), name='favorites'),
     path('car/<int:pk>/favorite/', views.toggle_favorite, name='toggle_favorite'),
 
+    path('moderation/', views.ModerationQueueView.as_view(), name='moderation_queue'),
+    path('moderation/approve/<int:pk>/', views.quick_approve, name='quick_approve'),
+    path('moderation/reject/<int:pk>/', views.quick_reject, name='quick_reject'),
+
     path('register/', views.register, name='register'),
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),

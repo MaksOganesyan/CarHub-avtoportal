@@ -9,10 +9,10 @@ from .filters import CarFilter  # наш FilterSet
 
 class IsSellerOrReadOnly(permissions.BasePermission):
     """
-    Продавец (или staff) может создавать/редактировать свои объявления.
-    Остальные — только чтение.
+    Продавец может создавать/редактировать свои объявления.
+    Остальные — только чтение (публичный доступ к активным).
 
-    Используется в CarViewSet для ролевой авторизации (часть валидации пункта 4).
+    Модераторы и админы имеют расширенные права через отдельные действия и queryset логику.
     """
 
     def has_permission(self, request, view) -> bool:
@@ -27,10 +27,18 @@ class IsSellerOrReadOnly(permissions.BasePermission):
 
 
 class IsModeratorOrAdmin(permissions.BasePermission):
-    """Только модераторы и админы могут модерировать (permission class)."""
+    """
+    Только модераторы и админы могут выполнять действия модерации.
+    Проверяет роль пользователя (moderator/admin) или is_staff.
+    """
 
     def has_permission(self, request, view) -> bool:
-        return request.user.is_authenticated and (request.user.is_staff or getattr(request.user, 'role', None) in ('moderator', 'admin'))
+        if not request.user.is_authenticated:
+            return False
+        if request.user.is_staff:
+            return True
+        role = getattr(request.user, 'role', None)
+        return role in ('moderator', 'admin')
 
 
 class CarViewSet(viewsets.ModelViewSet):
@@ -40,9 +48,13 @@ class CarViewSet(viewsets.ModelViewSet):
     - select_related + prefetch_related + annotate (пункт 3)
     - SerializerMethodField + context (пункт 4)
     - Ролевая авторизация
+
+    Модераторы и админы (роль moderator/admin или is_staff) могут:
+    - Видеть объявления на модерации (?moderation=1 или в get_queryset)
+    - Использовать действия /approve/ и /reject/ (демонстрация ролей)
     """
 
-    queryset = Car.objects.filter(status=Car.ACTIVE).select_related('brand', 'model', 'user')
+    queryset = Car.objects.all().select_related('brand', 'model', 'user')
     serializer_class = CarSerializer
     filterset_class = CarFilter   # используем полноценный FilterSet
 
@@ -55,13 +67,29 @@ class CarViewSet(viewsets.ModelViewSet):
         """
         Базовый queryset с оптимизациями и кастомными фильтрами.
 
+        - Обычные пользователи видят только ACTIVE.
+        - Модераторы и админы (через роль или is_staff) могут видеть объявления на модерации.
         Применяет select_related, prefetch_related, annotations (photo_count)
         для демонстрации оптимизации запросов в DRF (через Silk).
         """
-        qs: QuerySet[Car] = super().get_queryset()
+        user = getattr(self.request, 'user', None)
+        is_moderator = bool(
+            user and user.is_authenticated and (
+                user.is_staff or getattr(user, 'role', None) in ('moderator', 'admin')
+            )
+        )
 
-        if self.request.user.is_authenticated and 'my' in self.request.query_params:
-            qs = qs.filter(user=self.request.user)
+        if is_moderator:
+            # Модераторы видят все объявления (или можно фильтровать по статусу)
+            qs: QuerySet[Car] = Car.objects.all()
+        else:
+            qs: QuerySet[Car] = Car.objects.filter(status=Car.ACTIVE)
+
+        if user and user.is_authenticated and 'my' in self.request.query_params:
+            qs = qs.filter(user=user)
+
+        if 'moderation' in self.request.query_params and is_moderator:
+            qs = qs.filter(status=Car.MODERATION)
 
         if 'cheap_new_not_moderation' in self.request.query_params:
             qs = qs.filter(
@@ -94,6 +122,39 @@ class CarViewSet(viewsets.ModelViewSet):
         car.views += 1
         car.save(update_fields=['views'])
         return Response({'message': 'Просмотр засчитан', 'views': car.views})
+
+    @action(detail=True, methods=['post'], url_path='approve', permission_classes=[IsModeratorOrAdmin])
+    def approve(self, request, pk=None) -> Response:
+        """
+        Одобрить объявление (модератор/админ переводит MODERATION -> ACTIVE).
+
+        Отправляет уведомление продавцу через Celery.
+        Доступно только пользователям с ролью moderator/admin или is_staff.
+        """
+        car = self.get_object()
+        if car.status != Car.MODERATION:
+            return Response({'error': 'Можно одобрять только объявления на модерации'}, status=400)
+        car.status = Car.ACTIVE
+        car.save(update_fields=['status'])
+        from .tasks import send_car_approved_notification
+        send_car_approved_notification.delay(car.id)
+        return Response({'message': 'Объявление одобрено', 'status': car.status})
+
+    @action(detail=True, methods=['post'], url_path='reject', permission_classes=[IsModeratorOrAdmin])
+    def reject(self, request, pk=None) -> Response:
+        """
+        Отклонить объявление на модерации.
+
+        Для демонстрации ролей: модератор может отклонить (здесь удаляем для простоты).
+        В реальной системе можно менять статус на rejected или оставлять с комментарием.
+        Доступно только модераторам и админам.
+        """
+        car = self.get_object()
+        if car.status != Car.MODERATION:
+            return Response({'error': 'Можно отклонять только объявления на модерации'}, status=400)
+        car_id = car.id
+        car.delete()
+        return Response({'message': f'Объявление #{car_id} отклонено и удалено'})
 
 
 class BrandViewSet(viewsets.ModelViewSet):

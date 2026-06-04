@@ -175,7 +175,7 @@ if DEBUG and not TESTING:
         'RESULTS_CACHE_SIZE': 50,
     }
 
-    SILKY_PYTHON_PROFILER = True
+    SILKY_PYTHON_PROFILER = False  # disabled to avoid conflict with debug_toolbar's cProfile
     SILKY_AUTHENTICATION = False
     SILKY_AUTHORISATION = False
     SILKY_META = True
@@ -186,13 +186,36 @@ if TESTING:
         if tool in INSTALLED_APPS:
             INSTALLED_APPS.remove(tool)
 
+# Celery configuration - full async with Redis "везде" (bare local + Docker)
+# Default: redis on localhost:6379 (for bare `python manage.py runserver` + separate `celery worker`)
+# In docker-compose dev/prod the env var is overridden to the service name (redis://redis:6379/0)
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0'))
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+# Чтобы иметь настоящую асинхронность и Redis + Celery "везде" (включая голый `python manage.py runserver` на Windows):
+# === Минимальный набор для bare local (рекомендую) ===
+# 1. Redis (в отдельной консоли, один раз):
+#    docker run -d --name local-redis -p 6379:6379 redis:7-alpine
+# 2. Celery worker (в отдельной консоли, держи запущенным):
+#    celery -A carhub worker --loglevel=info
+# 3. Mailhog для писем (опционально, в отдельной консоли):
+#    docker run -d -p 1025:1025 -p 8025:8025 mailhog/mailhog
+#    Письма смотри на http://localhost:8025
+#
+# Затем в основной консоли:
+#    python manage.py runserver
+#
+# Все .delay() теперь будут реально асинхронными через Redis.
+# Если Redis не поднят — получишь "Retry limit exceeded" (как было).
+#
+# Полный удобный дев-стек одной командой (всё включено: redis + mailhog + worker + beat):
+#   docker-compose up
+# (лучше всего для демо и защиты).
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
@@ -209,6 +232,11 @@ if TESTING:
     CELERY_RESULT_BACKEND = 'cache'
     CELERY_CACHE_BACKEND = 'memory'
     EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+
+# Full asynchrony with Redis + Celery "везде" (including bare local runserver).
+# Default is redis on localhost:6379.
+# You must have Redis running for real async tasks (see instructions below).
+# Do not auto-fallback to eager in DEBUG - user wants real broker everywhere.
 
 SITE_ID = 1
 
@@ -260,7 +288,7 @@ if not TESTING:
     if _raw_dsn:
         # Убираем возможные кавычки и пробелы из .env (частая причина, почему события не уходят)
         GLITCHTIP_DSN = _raw_dsn.strip().strip('"').strip("'")
-    if GLITCHTIP_DSN:
+    if GLITCHTIP_DSN and (not DEBUG or os.environ.get('FORCE_GLITCHTIP_IN_DEV')):
         try:
             import sentry_sdk
             from sentry_sdk.integrations.django import DjangoIntegration

@@ -1,0 +1,69 @@
+{% extends "core/base.html" %}
+
+{% block title %}CarHub — Очередь на модерацию{% endblock %}
+
+{% block content %}
+<h1 style="font-size: 2.5rem; margin-bottom: 2rem; color: #2c3e50;">
+    Очередь на модерацию
+</h1>
+
+<p style="margin-bottom: 1.5rem; color: #555;">
+    Здесь показаны объявления, ожидающие одобрения. Используйте формы редактирования для изменения статуса.
+</p>
+<p><a href="{% url 'core:car_list' %}" style="color: #3498db;">← К активным объявлениям (для админа видны все)</a></p>
+
+<div class="cars-grid">
+    {% for car in cars %}
+    <div class="car-card">
+        {% if car.main_image %}
+            <img src="{{ car.main_image.url }}" alt="{{ car }}" class="car-img">
+        {% elif car.main_image_url %}
+            <img src="{{ car.main_image_url }}" alt="{{ car }}" class="car-img">
+        {% else %}
+            <img src="https://via.placeholder.com/320x220?text=Нет+фото" alt="Нет фото" class="car-img">
+        {% endif %}
+
+        <div class="car-body">
+            <div class="car-title">
+                <a href="{% url 'core:car_detail' car.pk %}">
+                    {{ car.model }} ({{ car.year }})
+                </a>
+            </div>
+            <div class="car-price">{{ car.price|floatformat:0 }} ₽</div>
+            <p><strong>Продавец:</strong> {{ car.user.username }}</p>
+            <p><strong>Пробег:</strong> {{ car.mileage|default:"не указан" }} км</p>
+            <p style="color: #666; margin-top: 1rem;">
+                {{ car.description|truncatewords:20 }}
+            </p>
+            <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <a href="{% url 'core:car_update' car.pk %}" class="btn-success" style="font-size: 0.85rem; padding: 0.35rem 0.7rem; color: white; text-decoration: none;">
+                    Полная форма
+                </a>
+                <form method="post" action="{% url 'core:quick_approve' car.pk %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" style="font-size: 0.85rem; padding: 0.35rem 0.7rem; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        ✓ Быстро одобрить
+                    </button>
+                </form>
+                {% if user.is_staff or user.role == 'admin' %}
+                <form method="post" action="{% url 'core:quick_reject' car.pk %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" style="font-size: 0.85rem; padding: 0.35rem 0.7rem; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        ✕ Быстро отклонить
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <p style="grid-column: 1 / -1; text-align: center; font-size: 1.4rem; color: #777; margin-top: 3rem;">
+        Нет объявлений на модерации.
+    </p>
+    {% endfor %}
+</div>
+
+<div style="margin-top: 2rem;">
+    <a href="{% url 'core:car_list' %}" style="color: #3498db;">← Назад к активным объявлениям</a>
+</div>
+{% endblock %}

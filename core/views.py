@@ -37,11 +37,13 @@ class LightweightPage:
 
 class CarListView(ListView):
     """
-    Список активных объявлений.
+    Список объявлений.
 
     Оптимизация запросов (пункт для оценки):
-    - select_related('brand', 'model', 'user') — избегаем N+1 при выводе марки/модели/продавца в шаблоне.
-    - Кастомная пагинация без COUNT (берём page_size+1) для демонстрации через Silk/toolbar.
+    - select_related('brand', 'model', 'user') — избегаем N+1.
+    - Кастомная пагинация без COUNT.
+
+    Модераторы могут просматривать очередь на модерацию (?status=moderation).
     """
     model = Car
     template_name = 'core/car_list.html'
@@ -49,9 +51,30 @@ class CarListView(ListView):
     page_size = 6
 
     def get_queryset(self):
-        """Возвращает оптимизированный queryset только активных авто с подгрузкой связанных объектов."""
+        """Возвращает оптимизированный queryset.
+
+        - Обычные пользователи видят только ACTIVE.
+        - Модераторы видят ACTIVE + могут фильтровать ?status=moderation
+        - Админы (role=admin или is_staff) видят все объявления.
+        """
+        user = self.request.user
+        is_admin = user.is_authenticated and (user.is_staff or getattr(user, 'role', None) == 'admin')
+        is_moderator = user.is_authenticated and getattr(user, 'role', None) == 'moderator'
+
+        if is_admin:
+            # Админы видят всё
+            base_qs = Car.objects.all()
+        elif is_moderator and self.request.GET.get('status') == 'moderation':
+            return (
+                Car.objects.filter(status=Car.MODERATION)
+                .select_related('brand', 'model', 'user')
+                .order_by('-created_at')
+            )
+        else:
+            base_qs = Car.objects.filter(status=Car.ACTIVE)
+
         return (
-            Car.objects.filter(status=Car.ACTIVE)
+            base_qs
             .select_related('brand', 'model', 'user')
             .order_by('-created_at')
         )
@@ -72,6 +95,12 @@ class CarListView(ListView):
             'is_paginated': page_obj.has_previous() or page_obj.has_next(),
             'view': self,
         }
+        # Для админов показываем все объявления
+        user = self.request.user
+        if user.is_authenticated and (user.is_staff or getattr(user, 'role', None) == 'admin'):
+            context['page_title'] = 'Все объявления (админ)'
+        else:
+            context['page_title'] = 'Объявления об автомобилях'
         context.update(kwargs)
         return context
 
@@ -187,17 +216,46 @@ class CarUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         return context
 
     def test_func(self) -> bool:
-        """Только владелец автомобиля может его обновлять."""
-        car = self.get_object()
-        return self.request.user == car.user
+        """
+        Владелец может редактировать свои объявления.
+        Администраторы (role=admin или is_staff) имеют полный доступ ко всем объявлениям.
+        Модераторы могут редактировать только объявления на модерации (для одобрения/отклонения).
+        """
+        try:
+            car = self.get_object()
+        except Exception:
+            return False
+        user = self.request.user
+        if user == car.user:
+            return True
+        is_admin = user.is_staff or getattr(user, 'role', None) == 'admin'
+        if is_admin:
+            return True  # full access for admins
+        is_moderator = getattr(user, 'role', None) == 'moderator'
+        if is_moderator and car.status == Car.MODERATION:
+            return True
+        return False
 
     def form_valid(self, form) -> HttpResponse:
         """
-        Ограничивает смену статуса для не-staff (только на SOLD разрешено).
+        Ограничивает смену статуса:
+        - Обычный владелец может только перевести в SOLD.
+        - Модераторы могут менять только MODERATION -> ACTIVE.
+        - Администраторы имеют полный контроль над статусом.
         """
-        if not self.request.user.is_staff and 'status' in form.cleaned_data:
-            if form.cleaned_data['status'] != Car.SOLD:
+        user = self.request.user
+        is_admin = user.is_staff or getattr(user, 'role', None) == 'admin'
+        is_moderator = getattr(user, 'role', None) == 'moderator'
+
+        if 'status' in form.cleaned_data:
+            new_status = form.cleaned_data['status']
+            if not (is_admin or is_moderator) and new_status != Car.SOLD:
                 form.instance.status = self.object.status
+            # Модераторы могут только одобрять (MODERATION -> ACTIVE)
+            if is_moderator and not (self.object.status == Car.MODERATION and new_status == Car.ACTIVE):
+                form.instance.status = self.object.status
+            # Админы могут всё
+
         response = super().form_valid(form)
         if self.object.status == Car.ACTIVE and getattr(self, '_previous_status', None) == Car.MODERATION:
             from .tasks import send_car_approved_notification
@@ -211,9 +269,15 @@ class CarDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     success_url = reverse_lazy('core:car_list')
 
     def test_func(self) -> bool:
-        """Только владелец может удалить автомобиль."""
+        """Только владелец может удалить автомобиль. Админы — любые."""
         car = self.get_object()
-        return self.request.user == car.user
+        user = self.request.user
+        if user == car.user:
+            return True
+        is_admin = user.is_staff or getattr(user, 'role', None) == 'admin'
+        if is_admin:
+            return True
+        return False
 
 
 def register(request):
@@ -299,6 +363,73 @@ class FavoritesListView(LoginRequiredMixin, ListView):
             .prefetch_related('car__photos')
             .order_by('-created_at')
         )
+
+
+class ModerationQueueView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    """
+    Очередь объявлений на модерации.
+
+    Доступна только модераторам и администраторам.
+    Показывает все объявления со статусом MODERATION с оптимизированным запросом.
+    """
+    model = Car
+    template_name = 'core/moderation_queue.html'
+    context_object_name = 'cars'
+
+    def test_func(self) -> bool:
+        """Только модераторы и админы."""
+        user = self.request.user
+        return user.is_staff or getattr(user, 'role', None) in ('moderator', 'admin')
+
+    def get_queryset(self):
+        """Оптимизированный queryset для модерации."""
+        return (
+            Car.objects.filter(status=Car.MODERATION)
+            .select_related('brand', 'model', 'user')
+            .order_by('-created_at')
+        )
+
+
+@login_required
+def quick_approve(request, pk: int) -> HttpResponse:
+    """
+    Быстрое одобрение объявления модератором/админом (без формы редактирования).
+
+    Переводит MODERATION -> ACTIVE и отправляет уведомление через Celery.
+    Доступно только привилегированным ролям.
+    """
+    car = get_object_or_404(Car, pk=pk, status=Car.MODERATION)
+    user = request.user
+    is_privileged = user.is_staff or getattr(user, 'role', None) in ('moderator', 'admin')
+    if not is_privileged:
+        messages.error(request, 'Нет прав на модерацию.')
+        return redirect('core:moderation_queue')
+
+    car.status = Car.ACTIVE
+    car.save(update_fields=['status'])
+    from .tasks import send_car_approved_notification
+    send_car_approved_notification.delay(car.id)
+    messages.success(request, f'Объявление #{car.id} одобрено.')
+    return redirect('core:moderation_queue')
+
+
+@login_required
+def quick_reject(request, pk: int) -> HttpResponse:
+    """
+    Быстрое отклонение объявления модератором/админом.
+    Удаляет объявление (для демо).
+    """
+    car = get_object_or_404(Car, pk=pk, status=Car.MODERATION)
+    user = request.user
+    is_privileged = user.is_staff or getattr(user, 'role', None) in ('moderator', 'admin')
+    if not is_privileged:
+        messages.error(request, 'Нет прав на модерацию.')
+        return redirect('core:moderation_queue')
+
+    car_id = car.id
+    car.delete()
+    messages.success(request, f'Объявление #{car_id} отклонено.')
+    return redirect('core:moderation_queue')
 
 
 @login_required

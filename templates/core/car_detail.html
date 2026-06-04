@@ -19,6 +19,9 @@
     <p style="font-size: 1.4rem;"><strong>Цена:</strong> <span style="color: #27ae60; font-weight: bold;">{{ car.price|floatformat:0 }} ₽</span></p>
     <p style="font-size: 1.2rem;"><strong>Пробег:</strong> {{ car.mileage|default:"не указан" }} км</p>
     <p style="font-size: 1.1rem; margin: 1rem 0;"><strong>Продавец:</strong> {{ car.user.username }}</p>
+    {% if user.is_staff or user.role == 'admin' or user.role == 'moderator' %}
+    <p style="font-size: 0.9rem; color: #e74c3c;"><strong>Статус:</strong> {{ car.get_status_display }}</p>
+    {% endif %}
 
     <hr style="margin: 2rem 0;">
 
@@ -34,10 +37,14 @@
     </div>
     {% endif %}
 
-    {% if user == car.user %}
+    {% if user == car.user or user.is_staff or user.role == 'admin' %}
     <div style="margin-top: 3rem;">
         <a href="{% url 'core:car_update' car.pk %}" class="btn" style="background-color: #f39c12;">Редактировать</a>
         <a href="{% url 'core:car_delete' car.pk %}" class="btn" style="background-color: #e74c3c; margin-left: 1rem;">Удалить</a>
+    </div>
+    {% elif user.role == 'moderator' and car.status == 'moderation' %}
+    <div style="margin-top: 3rem;">
+        <a href="{% url 'core:car_update' car.pk %}" class="btn" style="background-color: #f39c12;">Редактировать / Одобрить</a>
     </div>
     {% endif %}
 

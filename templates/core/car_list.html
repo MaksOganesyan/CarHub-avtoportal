@@ -4,7 +4,7 @@
 
 {% block content %}
 <h1 style="font-size: 2.5rem; margin-bottom: 2rem; color: #2c3e50;">
-    Объявления об автомобилях
+    {% if page_title %}{{ page_title }}{% else %}Объявления об автомобилях{% endif %}
 </h1>
 
 {% if user.is_authenticated %}
@@ -37,11 +37,23 @@
             <p style="color: #666; margin-top: 1rem;">
                 {{ car.description|truncatewords:30 }}
             </p>
+            {% if user == car.user or user.is_staff or user.role == 'admin' %}
+            <div style="margin-top: 0.5rem;">
+                <a href="{% url 'core:car_update' car.pk %}" style="font-size: 0.85rem; color: #f39c12; text-decoration: none;">Редактировать</a>
+                {% if user.is_staff or user.role == 'admin' %}
+                <a href="{% url 'core:car_delete' car.pk %}" style="font-size: 0.85rem; color: #e74c3c; text-decoration: none; margin-left: 0.5rem;">Удалить</a>
+                {% endif %}
+            </div>
+            {% elif user.role == 'moderator' and car.status == 'moderation' %}
+            <div style="margin-top: 0.5rem;">
+                <a href="{% url 'core:car_update' car.pk %}" style="font-size: 0.85rem; color: #f39c12; text-decoration: none;">Редактировать / Одобрить</a>
+            </div>
+            {% endif %}
         </div>
     </div>
     {% empty %}
     <p style="grid-column: 1 / -1; text-align: center; font-size: 1.4rem; color: #777; margin-top: 3rem;">
-        Пока нет активных объявлений.
+        {% if user.is_staff or user.role == 'admin' %}Пока нет объявлений.{% else %}Пока нет активных объявлений.{% endif %}
     </p>
     {% endfor %}
 </div>

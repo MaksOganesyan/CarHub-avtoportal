@@ -71,9 +71,10 @@ class CarForm(forms.ModelForm):
         """
         Инициализирует форму и убирает поле статуса для обычных пользователей (продавцов).
 
-        Статус управляется только staff (или принудительно в BL).
+        Статус могут видеть и менять staff, модераторы и админы (для одобрения объявлений).
         """
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        if user and not user.is_staff:
+        is_privileged = user and (user.is_staff or getattr(user, 'role', None) in ('moderator', 'admin'))
+        if user and not is_privileged:
             self.fields.pop('status', None)
