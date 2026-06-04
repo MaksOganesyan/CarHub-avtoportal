@@ -175,7 +175,7 @@ if DEBUG and not TESTING:
         'RESULTS_CACHE_SIZE': 50,
     }
 
-    SILKY_PYTHON_PROFILER = False  # disabled to avoid conflict with debug_toolbar's cProfile
+    SILKY_PYTHON_PROFILER = False  # отключён, чтобы не конфликтовал с debug_toolbar
     SILKY_AUTHENTICATION = False
     SILKY_AUTHORISATION = False
     SILKY_META = True
@@ -187,10 +187,18 @@ if TESTING:
             INSTALLED_APPS.remove(tool)
 
 # Celery configuration - full async with Redis "везде" (bare local + Docker)
-# Default: redis on localhost:6379 (for bare `python manage.py runserver` + separate `celery worker`)
-# In docker-compose dev/prod the env var is overridden to the service name (redis://redis:6379/0)
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0'))
+
+# Normalize for bare local development on host:
+# If .env or compose left "redis://redis:6379/0" but we're not inside container,
+# switch to localhost so bare `python manage.py runserver` + local worker can connect.
+if 'redis://redis' in CELERY_BROKER_URL:
+    # Running on host (not inside docker container)
+    if not (os.path.exists('/.dockerenv') or os.environ.get('IN_DOCKER')):
+        CELERY_BROKER_URL = 'redis://localhost:6379/0'
+        CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'

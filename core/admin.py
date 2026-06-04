@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
-from .models import User, Brand, Model, Car, CarPhoto, Favorite, ForumPost
+from .models import User, Brand, Model, Car, CarPhoto, Favorite
 from .resources import CarResource
 from import_export.admin import ImportExportModelAdmin
 from import_export.formats import base_formats
