@@ -16,15 +16,12 @@ urlpatterns = [
     path('car/<int:pk>/edit/', views.CarUpdateView.as_view(), name='car_update'),
     path('car/<int:pk>/delete/', views.CarDeleteView.as_view(), name='car_delete'),
 
-    # Избранное
     path('favorites/', views.FavoritesListView.as_view(), name='favorites'),
     path('car/<int:pk>/favorite/', views.toggle_favorite, name='toggle_favorite'),
 
-    # Регистрация и логин
     path('register/', views.register, name='register'),
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
 
-    # API
     path('api/', include(router.urls)),
 ]

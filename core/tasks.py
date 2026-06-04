@@ -25,7 +25,6 @@ def send_car_submitted_for_moderation(car_id: int):
             f'Описание: {car.description[:200]}...\n\n'
             f'Проверьте в админке.'
         )
-        # Для демо шлём на дефолтный email, в реальном - рассылка модераторам
         send_mail(
             subject,
             message,
@@ -95,7 +94,6 @@ def process_car_image(car_id: int):
         if car.main_image:
             img_path = car.main_image.path
             with Image.open(img_path) as img:
-                # Пример: ресайз до max 1200px по длинной стороне
                 max_size = 1200
                 if max(img.size) > max_size:
                     img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)

@@ -45,7 +45,6 @@ class User(AbstractUser):
 
 
 class Brand(models.Model):
-    # Марки автомобилей
     name = models.CharField(
         max_length=100,
         unique=True,
@@ -67,7 +66,6 @@ class Brand(models.Model):
 
 
 class Model(models.Model):
-    # Модели автомобилей
     brand = models.ForeignKey(
         Brand,
         on_delete=models.CASCADE,
@@ -95,7 +93,6 @@ class Model(models.Model):
 
 
 class Car(models.Model):
-    # Объявления о продаже автомобилей
     MODERATION = 'moderation'
     ACTIVE = 'active'
     SOLD = 'sold'
@@ -187,7 +184,6 @@ class Car(models.Model):
 
 
 class CarPhoto(models.Model):
-    # Фотографии автомобиля
     car = models.ForeignKey(
         Car,
         on_delete=models.CASCADE,
@@ -217,7 +213,6 @@ class CarPhoto(models.Model):
 
 
 class Favorite(models.Model):
-    # Избранные объявления
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -246,7 +241,6 @@ class Favorite(models.Model):
 
 
 class ForumPost(models.Model):
-    # Посты на форуме/общении
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,

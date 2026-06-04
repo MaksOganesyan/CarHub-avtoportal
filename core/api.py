@@ -45,7 +45,6 @@ class CarViewSet(viewsets.ModelViewSet):
     serializer_class = CarSerializer
     filterset_class = CarFilter   # используем полноценный FilterSet
 
-    # Базовые права: чтение для всех, запись — только для продавцов (с проверкой владельца)
     permission_classes = [IsSellerOrReadOnly]
 
     search_fields = ['description', 'brand__name', 'model__name']

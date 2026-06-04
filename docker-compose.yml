@@ -2,6 +2,7 @@ services:
   web:
     build: .
     command: python manage.py runserver 0.0.0.0:8000
+    env_file: .env
     volumes:
       - .:/app
     ports:
@@ -18,14 +19,6 @@ services:
     stdin_open: true
     tty: true
 
-  # Для деплоя на сервер (пункт 3 на отлично):
-  # - Используйте production settings (DEBUG=False, SECRET_KEY из env, ALLOWED_HOSTS)
-  # - Замените CMD в Dockerfile на gunicorn
-  # - Добавьте postgres в compose для prod
-  # - Используйте nginx для статики и reverse proxy
-  # - Пример: docker-compose -f docker-compose.prod.yml up -d
-  # Полная подготовка: см. docs/Deploy.md (создайте при необходимости)
-
   redis:
     image: redis:7-alpine
     ports:
@@ -34,12 +27,13 @@ services:
   mailhog:
     image: mailhog/mailhog
     ports:
-      - "1025:1025"  # SMTP
-      - "8025:8025"  # Web UI
+      - "1025:1025"
+      - "8025:8025"
 
   celery:
     build: .
     command: celery -A carhub worker --loglevel=info
+    env_file: .env
     volumes:
       - .:/app
     environment:
@@ -52,6 +46,7 @@ services:
   celery-beat:
     build: .
     command: celery -A carhub beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    env_file: .env
     volumes:
       - .:/app
     environment:

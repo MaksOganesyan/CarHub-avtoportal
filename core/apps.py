@@ -12,7 +12,6 @@ class CoreConfig(AppConfig):
         def register_periodic_tasks(sender, **kwargs):
             if sender.name != 'django_celery_beat':
                 return
-            # Автоматическая регистрация периодической задачи для Celery Beat (пункт 1 на отлично)
             from django_celery_beat.models import PeriodicTask, IntervalSchedule
             try:
                 schedule, _ = IntervalSchedule.objects.get_or_create(
@@ -28,7 +27,6 @@ class CoreConfig(AppConfig):
             except Exception:
                 pass
 
-        # Для OAUTH2 (allauth social signup) - принудительно роль SELLER
         from allauth.socialaccount.signals import social_account_added
         from .models import User
 

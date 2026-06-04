@@ -27,4 +27,4 @@ pyvenv.cfg
 pip-selfcheck.json
 Include/
 .env.prod
-
+.env

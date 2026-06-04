@@ -1,4 +1,3 @@
-# Set Celery to eager mode BEFORE any Django or Celery imports to avoid Redis connections in tests.
 import os
 os.environ.setdefault('CELERY_TASK_ALWAYS_EAGER', 'True')
 os.environ.setdefault('CELERY_TASK_EAGER_PROPAGATES', 'True')
@@ -20,7 +19,6 @@ from .forms import CustomUserCreationForm, CarForm
 from .serializers import CarSerializer
 from .filters import CarFilter
 
-# Force eager mode after django setup (in case celery configured early)
 import django
 if not django.apps.apps.ready:
     django.setup()
@@ -59,7 +57,6 @@ class UserRoleTests(TestCase):
         admin = User.objects.create_superuser('admin', 'admin@test.com', 'pass')
         moderator = User.objects.create_user('mod', 'mod@test.com', 'pass', role=User.MODERATOR)
         self.assertEqual(moderator.role, User.MODERATOR)
-        # In form, regular users cannot choose these roles
         self.assertNotIn('role', CustomUserCreationForm().fields)
 
 
@@ -74,7 +71,6 @@ class CarModelValidationTests(TestCase):
     def test_car_model_must_belong_to_brand(self):
         other_brand = Brand.objects.create(name='Honda')
         wrong_model = CarModel.objects.create(brand=other_brand, name='Civic')
-        # Test via serializer (as used in API)
         data = {
             'brand': self.brand.id,
             'model': wrong_model.id,
@@ -88,7 +84,6 @@ class CarModelValidationTests(TestCase):
 
     def test_price_must_be_positive(self):
         """Business rule: price > 0 enforced in serializer/form."""
-        # This is tested via serializer/form below
         pass
 
 
@@ -311,7 +306,6 @@ class CeleryTaskTests(TestCase):
         }
         resp = self.client.post(reverse('core:car_create'), data)
         self.assertEqual(resp.status_code, 302)
-        # Проверяем, что задача была запрошена (в eager — выполнена синхронно)
         self.assertTrue(mock_delay.called)
         self.assertGreaterEqual(mock_delay.call_count, 1)
 
@@ -337,23 +331,15 @@ class CeleryTaskTests(TestCase):
             user=self.seller, brand=self.brand, model=self.model,
             year=2020, price=900000, description='to approve', status=Car.MODERATION
         )
-        # Симулируем approve в форме/вьюхе (прямой вызов задачи в eager)
         from .tasks import send_car_approved_notification
-        # В eager .delay выполняет немедленно
         result = send_car_approved_notification.delay(car.id)
         self.assertTrue(result.successful())
-        # Проверяем, что email был "отправлен" (в locmem)
-        # (в реальном запуске задачи send_mail добавляет в outbox при locmem)
-        # Просто убеждаемся, что не упало
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     @patch('core.tasks.process_car_image.delay')
     def test_image_processing_task_scheduled_on_create_with_image(self, mock_delay):
         """Если при создании есть main_image — планируется обработка фото."""
-        # Для простоты патчим; реальный файл-тест сложнее без upload
-        # Здесь достаточно, что логика в form_valid / serializer.create дергает delay
-        self.assertTrue(hasattr(mock_delay, 'called'))  # sanity
+        self.assertTrue(hasattr(mock_delay, 'called'))
 
 
-# Дополнительные тесты: Celery domain tasks (5 задач под тематику: модерация, approve, welcome, image, cleanup), фильтры, оптимизации, роли, API.
-# Итого 16+ тестов, покрывают пункты "хорошо" (тесты, docstrings) и "отлично" (Celery async + OAuth + Silk + deploy).
+

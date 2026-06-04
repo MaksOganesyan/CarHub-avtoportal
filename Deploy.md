@@ -18,7 +18,8 @@
 ```env
 DEBUG=0
 SECRET_KEY=сгенерируй_длинный_случайный_ключ
-ALLOWED_HOSTS=твойдомен.ру,www.твойдомен.ру
+ALLOWED_HOSTS=localhost,127.0.0.1,твойдомен.ру,www.твойдомен.ру
+# Для локального тестирования прод-стека на Windows/Mac добавь localhost выше. На реальном сервере оставь только домены.
 
 CELERY_BROKER_URL=redis://redis:6379/0
 
@@ -125,6 +126,60 @@ GlitchTip полностью совместим с `sentry-sdk`.
 
 В проде ошибки будут приходить в твой аккаунт GlitchTip с полным трейсом, окружением, версией и т.д.
 
----
+## 9. Демонстрация GlitchTip на защите (важно для оценки)
+
+Чтобы на защите надёжно показать, что ошибки и 404 реально улетают в облачный GlitchTip:
+
+1. Убедись, что `.env.prod` содержит правильный `GLITCHTIP_DSN` (без кавычек вокруг URL!).
+2. Пересобери и подними прод-стек:
+   ```powershell
+   docker-compose -f docker-compose.prod.yml build web
+   docker-compose -f docker-compose.prod.yml up -d --force-recreate
+   ```
+3. Выполни миграции (если нужно):
+   ```powershell
+   docker-compose -f docker-compose.prod.yml exec web python manage.py migrate
+   ```
+4. Для демонстрации **404**:
+   - Открой в браузере `http://localhost:8000/несуществующая-страница-xyz123/`
+   - Должен показаться простой 404 (из `templates/404.html`).
+   - Через 5-30 сек ошибка появится в дашборде GlitchTip (Issues) как "error" уровень.
+5. Для **гарантированной ошибки** (самый надёжный способ показать на защите):
+   - Открой `http://localhost:8000/trigger-glitchtip-error/`
+   - Страница упадёт с 500 (ZeroDivisionError).
+   - Ошибка **точно** появится в GlitchTip (DjangoIntegration ловит исключения + явный capture_exception + capture_message).
+6. Проверь в дашборде https://app.glitchtip.com/ — там должны быть:
+   - Сообщения о 404
+   - Исключение ZeroDivisionError с трейсом
+   - Ваше кастомное сообщение "GlitchTip demo..."
+7. Посмотреть логи контейнера (на случай вопросов) — ищи строку STARTUP:
+   ```powershell
+   docker-compose -f docker-compose.prod.yml logs --tail 30 web | Select-String -Pattern "STARTUP|GlitchTip|ERROR|Exception"
+   ```
+   В выводе должно быть примерно:
+   >>> STARTUP: DEBUG=False, DJANGO_ENV=production, GLITCHTIP_DSN=set
+
+8. Диагностика внутри контейнера (если вдруг всё ещё DEBUG=True):
+   ```powershell
+   docker-compose -f docker-compose.prod.yml exec web python -c "
+   import os, django
+   os.environ.setdefault('DJANGO_SETTINGS_MODULE','carhub.settings')
+   django.setup()
+   from django.conf import settings
+   print('Effective DEBUG:', settings.DEBUG)
+   print('DJANGO_ENV:', os.environ.get('DJANGO_ENV'))
+   "
+   ```
+
+После демонстрации (по желанию) можно убрать/закомментировать путь trigger-glitchtip-error в `carhub/urls.py`, но для защиты он полезен.
+
+**Важно:** всегда запускай прод именно так:
+`docker-compose -f docker-compose.prod.yml build web`
+`docker-compose -f docker-compose.prod.yml up -d --force-recreate`
+(Обычный `docker-compose up` поднимает dev-стек с DEBUG=1 и живым монтированием кода — поэтому ты видишь отладочную страницу Django.)
+
+В settings.py есть принудительная логика: при DJANGO_ENV=production DEBUG всегда становится False.
+
+Это "другой" надёжный подход: вместо надежды только на автоматический лог 404 мы добавили явный триггер исключения + принудительный capture в handler404.
 
 

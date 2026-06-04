@@ -35,7 +35,6 @@ class CarListView(ListView):
     template_name = 'core/car_list.html'
     context_object_name = 'cars'
     page_size = 6
-    # Пункт 3: оптимизация запросов (select_related для связанных объектов)
     queryset = Car.objects.filter(status=Car.ACTIVE).select_related('brand', 'model', 'user').order_by('-created_at')
 
     def get_context_data(self, **kwargs) -> dict:
@@ -70,7 +69,6 @@ class CarDetailView(DetailView):
     context_object_name = 'car'
 
     def get_queryset(self):
-        # Пункт 3: оптимизация — select_related для car relations + prefetch для photos
         return (super().get_queryset()
                 .select_related('brand', 'model', 'user')
                 .prefetch_related('photos'))
@@ -81,7 +79,6 @@ class CarDetailView(DetailView):
         """
         context = super().get_context_data(**kwargs)
         context['photos'] = self.object.photos.all()
-        # Проверяем, в избранном ли у текущего пользователя
         context['is_favorited'] = False
         if self.request.user.is_authenticated:
             context['is_favorited'] = Favorite.objects.filter(
@@ -106,7 +103,6 @@ class CarCreateView(LoginRequiredMixin, CreateView):
         """Предоставляет бренды и модели для зависимого select в шаблоне."""
         context = super().get_context_data(**kwargs)
         context['brands'] = Brand.objects.all()
-        # Оптимизация: select_related чтобы доступ model.brand не вызывал доп. запросы
         context['models'] = Model.objects.select_related('brand').all()
         return context
 
@@ -118,11 +114,9 @@ class CarCreateView(LoginRequiredMixin, CreateView):
         """
         form.instance.user = self.request.user
         form.instance.created_by = self.request.user
-        # Обычные пользователи не могут сразу публиковать — только на модерацию
         if not self.request.user.is_staff:
             form.instance.status = Car.MODERATION
         response = super().form_valid(form)
-        # Асинхронные задачи Celery (пункт 1 на отлично)
         from .tasks import send_car_submitted_for_moderation, process_car_image
         send_car_submitted_for_moderation.delay(self.object.id)
         if self.object.main_image:
@@ -157,7 +151,6 @@ class CarUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         """Предоставляет бренды и модели для формы редактирования."""
         context = super().get_context_data(**kwargs)
         context['brands'] = Brand.objects.all()
-        # Оптимизация: select_related чтобы доступ model.brand не вызывал доп. запросы
         context['models'] = Model.objects.select_related('brand').all()
         return context
 
@@ -170,13 +163,10 @@ class CarUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         """
         Ограничивает смену статуса для не-staff (только на SOLD разрешено).
         """
-        # Для обычных пользователей статус можно менять только на SOLD (или оставляем как был)
         if not self.request.user.is_staff and 'status' in form.cleaned_data:
-            # Разрешаем только переход в SOLD
             if form.cleaned_data['status'] != Car.SOLD:
-                form.instance.status = self.object.status  # не даём менять на active/moderation
+                form.instance.status = self.object.status
         response = super().form_valid(form)
-        # Если одобрили (с moderation на active) — уведомляем продавца асинхронно
         if self.object.status == Car.ACTIVE and getattr(self, '_previous_status', None) == Car.MODERATION:
             from .tasks import send_car_approved_notification
             send_car_approved_notification.delay(self.object.id)
@@ -194,7 +184,6 @@ class CarDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
         return self.request.user == car.user
 
 
-# Регистрация и логин
 def register(request):
     """
     Публичная форма регистрации. Принудительно устанавливает роль SELLER.
@@ -209,9 +198,7 @@ def register(request):
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            # Явно указываем backend из-за нескольких AUTHENTICATION_BACKENDS (allauth + ModelBackend)
             login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-            # Асинхронное приветственное письмо
             from .tasks import send_welcome_email
             send_welcome_email.delay(user.id)
             messages.success(request, 'Регистрация прошла успешно!')
@@ -227,7 +214,6 @@ def user_login(request):
         form = CustomAuthenticationForm(data=request.POST)
         if form.is_valid():
             user = form.get_user()
-            # Явно указываем backend из-за нескольких AUTHENTICATION_BACKENDS (allauth + ModelBackend)
             login(request, user, backend='django.contrib.auth.backends.ModelBackend')
             messages.success(request, f'Добро пожаловать, {user.username}!')
             return redirect('core:car_list')
@@ -243,8 +229,6 @@ def user_logout(request):
     return redirect('core:car_list')
 
 
-# === Избранное ===
-
 class FavoritesListView(LoginRequiredMixin, ListView):
     """Список избранных объявлений текущего пользователя"""
     model = Favorite
@@ -253,12 +237,7 @@ class FavoritesListView(LoginRequiredMixin, ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        """
-        Оптимизированный queryset для избранных пользователя.
-
-        Использует select_related + prefetch_related (оптимизация пункта 3).
-        """
-        # Пункт 3: хорошая оптимизация для избранного
+        """Оптимизированный queryset для избранных пользователя."""
         return (Favorite.objects
                 .filter(user=self.request.user)
                 .select_related('car', 'car__brand', 'car__model', 'car__user')
@@ -273,12 +252,9 @@ def toggle_favorite(request, pk: int):
 
     Args:
         pk: Первичный ключ автомобиля.
-
-    Только активные автомобили для обычных пользователей.
     """
     car = get_object_or_404(Car, pk=pk)
 
-    # Разрешаем добавлять в избранное только активные объявления
     if car.status != Car.ACTIVE and not request.user.is_staff:
         messages.error(request, 'Можно добавлять в избранное только активные объявления.')
         return redirect('core:car_detail', pk=pk)
@@ -290,5 +266,57 @@ def toggle_favorite(request, pk: int):
     else:
         messages.success(request, 'Объявление добавлено в избранное.')
 
-    # Возвращаемся на страницу объявления
     return redirect('core:car_detail', pk=pk)
+
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def handler404(request, exception):
+    """
+    Кастомный обработчик 404 для продакшена.
+
+    Всегда отправляет информацию о 404 в GlitchTip (capture_message),
+    чтобы ошибки отсутствующих страниц были видны в дашборде (для демонстрации на защите).
+    Возвращает простой ответ (шаблон 404.html будет использован фреймворком при DEBUG=False).
+    """
+    path = request.path
+    method = request.method
+    msg = f"404 Not Found: {path} (method={method})"
+    logger.warning(msg)
+    try:
+        import sentry_sdk
+        sentry_sdk.capture_message(msg, level="error")
+    except Exception:
+        pass  # не роняем 404 если SDK не готов
+    from django.shortcuts import render
+    # Возвращаем красивый, но минимальный 404 (templates/404.html) — без debug-трассировок при DEBUG=False
+    return render(request, '404.html', status=404)
+
+
+def trigger_glitchtip_error(request):
+    """
+    Специальный view для демонстрации работы GlitchTip на защите курсовой.
+
+    При обращении к /trigger-glitchtip-error/ намеренно вызывает исключение.
+    Это гарантированно отправит ошибку в облачный GlitchTip (через DjangoIntegration),
+    даже если обычные 404 по каким-то причинам не доходят.
+    Используйте во время показа: откройте этот URL в браузере — ошибка появится в дашборде GlitchTip.
+
+    В реальном продакшене этот эндпоинт можно отключить или защитить.
+    """
+    # Разные типы для демонстрации: деление на ноль + явный capture
+    try:
+        _ = 1 / 0
+    except ZeroDivisionError as exc:
+        logger.error("Demo error triggered for GlitchTip: division by zero")
+        try:
+            import sentry_sdk
+            sentry_sdk.capture_exception(exc)
+            # Также отправим кастомное сообщение
+            sentry_sdk.capture_message("GlitchTip demo: trigger_glitchtip_error executed in prod (CarHub)", level="error")
+        except Exception:
+            pass
+        raise  # даём исключению подняться, чтобы DjangoIntegration тоже поймал

@@ -28,11 +28,9 @@ class CarSerializer(serializers.ModelSerializer):
     model_name = serializers.CharField(source='model.name', read_only=True)
     user_name = serializers.CharField(source='user.username', read_only=True)
 
-    # === Пункт 4.1 задания: SerializerMethodField ===
     photo_count = serializers.SerializerMethodField()
     main_photo = serializers.SerializerMethodField()
 
-    # === Пункт 4.2: данные через context (is_favorited для текущего пользователя) ===
     is_favorited = serializers.SerializerMethodField()
 
     brand = serializers.PrimaryKeyRelatedField(
@@ -55,8 +53,6 @@ class CarSerializer(serializers.ModelSerializer):
             'photo_count', 'main_photo', 'is_favorited'
         ]
         read_only_fields = ['views', 'created_at', 'user', 'user_name', 'photo_count', 'main_photo', 'is_favorited']
-
-    # === SerializerMethodField примеры ===
 
     def get_photo_count(self, obj: Car) -> int:
         """Количество дополнительных фотографий.
@@ -85,12 +81,9 @@ class CarSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
-        # Избегаем лишнего запроса, если related_name уже загружен (через prefetch)
         if hasattr(obj, '_favorited_by_user_ids'):
             return request.user.id in obj._favorited_by_user_ids
         return obj.favorited_by.filter(user=request.user).exists()
-
-    # === Валидация бизнес-логики (пункт 2) ===
 
     def validate_price(self, value: float) -> float:
         """Валидирует, что цена > 0."""
@@ -124,11 +117,9 @@ class CarSerializer(serializers.ModelSerializer):
         Использует context['request'].user.
         """
         validated_data['user'] = self.context['request'].user
-        # Обычные пользователи не могут сразу публиковать
         if not self.context['request'].user.is_staff:
             validated_data['status'] = Car.MODERATION
         car = super().create(validated_data)
-        # Асинхронные задачи
         from .tasks import send_car_submitted_for_moderation, process_car_image
         send_car_submitted_for_moderation.delay(car.id)
         if car.main_image:

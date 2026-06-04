@@ -78,7 +78,6 @@ class CarAdmin(ImportExportModelAdmin):
         ws = wb.active
         ws.title = "Объявления"
 
-        # Жирные заголовки
         bold_font = Font(bold=True, size=12)
         for col_num, column_title in enumerate(dataset.headers, 1):
             cell = ws.cell(row=1, column=col_num)
@@ -86,12 +85,10 @@ class CarAdmin(ImportExportModelAdmin):
             cell.font = bold_font
             cell.alignment = Alignment(horizontal='center')
 
-        # Данные
         for row_num, row in enumerate(dataset.dict, 2):
             for col_num, value in enumerate(row.values(), 1):
                 ws.cell(row=row_num, column=col_num).value = value
 
-        # Автоширина столбцов
         for col in ws.columns:
             max_length = 0
             column = col[0].column_letter
@@ -104,7 +101,6 @@ class CarAdmin(ImportExportModelAdmin):
             adjusted_width = (max_length + 2)
             ws.column_dimensions[column].width = adjusted_width
 
-        # Заморозка первой строки
         ws.freeze_panes = 'A2'
 
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

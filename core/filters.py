@@ -29,7 +29,6 @@ class CarFilter(django_filters.FilterSet):
     year_min = django_filters.NumberFilter(field_name='year', lookup_expr='gte', label='Год от')
     year_max = django_filters.NumberFilter(field_name='year', lookup_expr='lte', label='Год до')
 
-    # Быстрый поиск по частичному совпадению в описании или названии модели/марки
     q = django_filters.CharFilter(method='filter_search', label='Поиск')
 
     class Meta:
