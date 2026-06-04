@@ -308,3 +308,35 @@ SOCIALACCOUNT_PROVIDERS = {
 
 # Добавляем allauth urls в конце (см urls.py)
 ACCOUNT_LOGIN_ON_GET = True  # упрощаем для демо
+
+# ==============================================
+# GlitchTip (облачная версия вместо Sentry)
+# Для пункта "хорошо" — отслеживание ошибок без нагрузки на систему.
+# GlitchTip полностью совместим с Sentry SDK.
+# Получи DSN здесь: https://glitchtip.com/ → проект → Settings → Client Keys
+# ==============================================
+if not TESTING:
+    GLITCHTIP_DSN = os.environ.get("GLITCHTIP_DSN")
+    if GLITCHTIP_DSN:
+        try:
+            import sentry_sdk
+            from sentry_sdk.integrations.django import DjangoIntegration
+
+            sentry_sdk.init(
+                dsn=GLITCHTIP_DSN,
+                integrations=[DjangoIntegration()],
+                traces_sample_rate=0.01, 
+                auto_session_tracking=False,  
+                # enable_logs=True,  
+                environment=os.environ.get("DJANGO_ENV", "development"),
+                send_default_pii=False,  # не отправлять чувствительные данные пользователя по умолчанию
+            )
+        except ImportError:
+            import logging
+            logging.getLogger(__name__).warning(
+                "GLITCHTIP_DSN is set but 'sentry-sdk' package is not installed. "
+                "Add it via 'pip install sentry-sdk' and rebuild your Docker image."
+            )
+        else:
+            # Temporary debug print - remove this line after successful testing
+            print(">>> GlitchTip SDK initialized successfully (DSN present)")
