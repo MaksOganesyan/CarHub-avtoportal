@@ -1,10 +1,11 @@
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db.models import Q, Count
+from django.db.models import Q, Count, QuerySet
 from .models import Car, Brand
 from .serializers import CarSerializer, BrandSerializer
 from .filters import CarFilter  # наш FilterSet
+
 
 class IsSellerOrReadOnly(permissions.BasePermission):
     """
@@ -50,13 +51,14 @@ class CarViewSet(viewsets.ModelViewSet):
     search_fields = ['description', 'brand__name', 'model__name']
     ordering_fields = ['price', 'year', 'created_at', 'views']
 
-    def get_queryset(self):
+    def get_queryset(self) -> QuerySet[Car]:
         """
         Базовый queryset с оптимизациями и кастомными фильтрами.
 
-        Применяет select_related, prefetch, annotations (photo_count) для производительности.
+        Применяет select_related, prefetch_related, annotations (photo_count)
+        для демонстрации оптимизации запросов в DRF (через Silk).
         """
-        qs = super().get_queryset()
+        qs: QuerySet[Car] = super().get_queryset()
 
         if self.request.user.is_authenticated and 'my' in self.request.query_params:
             qs = qs.filter(user=self.request.user)
@@ -71,9 +73,12 @@ class CarViewSet(viewsets.ModelViewSet):
                 (Q(year__lt=2015) | Q(price__gt=3000000)) & ~Q(status=Car.SOLD)
             )
 
-        return qs.select_related('brand', 'model', 'user').prefetch_related('photos').annotate(
-            photo_count=Count('photos')
-        ).order_by('-created_at')
+        return (
+            qs.select_related('brand', 'model', 'user')
+            .prefetch_related('photos')
+            .annotate(photo_count=Count('photos'))
+            .order_by('-created_at')
+        )
 
     @action(detail=False, methods=['get'], url_path='cheap')
     def cheap(self, request) -> Response:

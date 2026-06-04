@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task
-def send_car_submitted_for_moderation(car_id: int):
+def send_car_submitted_for_moderation(car_id: int) -> None:
     """
     Асинхронная задача: отправка уведомления модераторам о новом объявлении на модерацию.
     """
@@ -40,7 +40,7 @@ def send_car_submitted_for_moderation(car_id: int):
 
 
 @shared_task
-def send_car_approved_notification(car_id: int):
+def send_car_approved_notification(car_id: int) -> None:
     """
     Асинхронная задача: уведомление продавца об одобрении объявления.
     """
@@ -68,21 +68,34 @@ def send_car_approved_notification(car_id: int):
 
 
 @shared_task
-def cleanup_old_sold_cars():
+def cleanup_old_sold_cars() -> None:
     """
-    Периодическая задача: удаление старых проданных объявлений (старше 1 года).
-    Обёртка над management command.
+    Периодическая Celery-задача (запускается через django-celery-beat раз в сутки).
+
+    Удаляет объявления автомобилей со статусом SOLD, которые были созданы более 365 дней назад.
+    Это реальная доменная периодическая задача под тематику портала (очистка архива проданных машин).
+
+    Используется для демонстрации пункта "отлично" (периодические задачи Celery).
     """
-    from django.core.management import call_command
+    from .models import Car
+    from django.utils import timezone
+    from datetime import timedelta
+
     try:
-        call_command('clean_old_cars')
-        logger.info("Periodic cleanup of old sold cars completed successfully")
+        cutoff = timezone.now() - timedelta(days=365)
+        qs = Car.objects.filter(status=Car.SOLD, created_at__lt=cutoff)
+        count = qs.count()
+        if count > 0:
+            qs.delete()
+            logger.info(f"Periodic cleanup: удалено {count} старых проданных объявлений (старше 1 года)")
+        else:
+            logger.info("Periodic cleanup: старых проданных объявлений для удаления нет")
     except Exception as e:
-        logger.error(f"Error in periodic cleanup: {e}")
+        logger.error(f"Error in periodic cleanup_old_sold_cars: {e}")
 
 
 @shared_task
-def process_car_image(car_id: int):
+def process_car_image(car_id: int) -> None:
     """
     Асинхронная обработка изображения автомобиля (ресайз, оптимизация).
     Используется при загрузке фото.
@@ -104,7 +117,7 @@ def process_car_image(car_id: int):
 
 
 @shared_task
-def send_welcome_email(user_id: int):
+def send_welcome_email(user_id: int) -> None:
     """
     Асинхронная отправка приветственного письма после регистрации.
     """

@@ -1,5 +1,5 @@
 import django_filters
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from .models import Car, Brand, Model
 
 
@@ -39,7 +39,7 @@ class CarFilter(django_filters.FilterSet):
             'model': ['exact'],
         }
 
-    def filter_search(self, queryset, name: str, value: str):
+    def filter_search(self, queryset: QuerySet[Car], name: str, value: str) -> QuerySet[Car]:
         """Кастомный поисковый фильтр по описанию/названию бренда/модели."""
         if not value:
             return queryset

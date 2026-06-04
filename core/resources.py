@@ -7,6 +7,11 @@ from .models import Car
 
 
 class CarResource(resources.ModelResource):
+    """
+    Ресурс django-import-export для экспорта автомобилей (используется в CarAdmin).
+    Содержит dehydrate_* для форматирования полей при экспорте.
+    """
+
     brand_name = fields.Field(attribute='brand__name', column_name='Марка автомобиля')
     model_name = fields.Field(attribute='model__name', column_name='Модель автомобиля')
     full_description = fields.Field(column_name='Краткое описание')
@@ -24,8 +29,15 @@ class CarResource(resources.ModelResource):
         report_skipped = False
 
     def get_export_queryset(self) -> QuerySet[Car]:
-        """Возвращает queryset активных авто для отчётов экспорта."""
-        return self.Meta.model.objects.filter(status=self.Meta.model.ACTIVE)
+        """
+        Возвращает оптимизированный queryset для экспорта.
+
+        Использует select_related, чтобы при большом экспорте не было N+1 на brand/model/user.
+        """
+        return (
+            self.Meta.model.objects.filter(status=self.Meta.model.ACTIVE)
+            .select_related('brand', 'model', 'user')
+        )
 
     def dehydrate_price(self, car: Car) -> str:
         """Возвращает отформатированную строку цены для экспорта."""

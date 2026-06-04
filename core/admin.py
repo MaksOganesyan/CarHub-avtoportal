@@ -145,7 +145,7 @@ class FavoriteAdmin(admin.ModelAdmin):
 
     @admin.display(description=_('Объявление'))
     def car_link(self, obj: Favorite) -> str:
-        """Link to car in admin for Favorite."""
+        """Генерирует ссылку на автомобиль в админке (для списка Favorite)."""
         if obj.car_id:
             try:
                 url = reverse('admin:core_car_change', args=[obj.car_id])

@@ -5,6 +5,12 @@ from simple_history.models import HistoricalRecords
 
 
 class User(AbstractUser):
+    """
+    Кастомная модель пользователя с ролями (user/seller/moderator/admin).
+
+    Роль SELLER принудительно выдаётся при регистрации и через сигналы allauth (OAuth).
+    """
+
     USER = 'user'
     SELLER = 'seller'
     MODERATOR = 'moderator'
@@ -45,6 +51,8 @@ class User(AbstractUser):
 
 
 class Brand(models.Model):
+    """Справочник марок автомобилей (Brand)."""
+
     name = models.CharField(
         max_length=100,
         unique=True,
@@ -66,6 +74,8 @@ class Brand(models.Model):
 
 
 class Model(models.Model):
+    """Модель автомобиля (принадлежит Brand)."""
+
     brand = models.ForeignKey(
         Brand,
         on_delete=models.CASCADE,
@@ -93,6 +103,13 @@ class Model(models.Model):
 
 
 class Car(models.Model):
+    """
+    Основная модель объявления об автомобиле.
+
+    Содержит статусы (MODERATION / ACTIVE / SOLD), бизнес-логику через views/serializers.
+    Использует select_related везде для оптимизации.
+    """
+
     MODERATION = 'moderation'
     ACTIVE = 'active'
     SOLD = 'sold'
@@ -184,6 +201,8 @@ class Car(models.Model):
 
 
 class CarPhoto(models.Model):
+    """Дополнительные фотографии к объявлению Car (однонаправленный FK)."""
+
     car = models.ForeignKey(
         Car,
         on_delete=models.CASCADE,
@@ -213,6 +232,8 @@ class CarPhoto(models.Model):
 
 
 class Favorite(models.Model):
+    """Связь «пользователь — избранное объявление» (многие-ко-многим через модель)."""
+
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -241,6 +262,8 @@ class Favorite(models.Model):
 
 
 class ForumPost(models.Model):
+    """Простая модель постов форума (с поддержкой ответов). Вспомогательная для проекта."""
+
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,

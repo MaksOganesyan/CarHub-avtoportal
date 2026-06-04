@@ -4,6 +4,12 @@ from .models import User, Car
 
 
 class CustomUserCreationForm(UserCreationForm):
+    """
+    Кастомная форма регистрации.
+
+    При сохранении всегда форсирует роль SELLER (бизнес-правило).
+    """
+
     class Meta:
         model = User
         fields = ('username', 'email', 'phone', 'password1', 'password2')
@@ -40,8 +46,10 @@ class CustomUserCreationForm(UserCreationForm):
 
 
 class CustomAuthenticationForm(AuthenticationForm):
-    class Meta:
-        model = User
+    """Кастомная форма входа (можно расширять полями в будущем)."""
+    pass
+
+
 class CarForm(forms.ModelForm):
     """
     Форма для создания/редактирования объявлений об автомобилях.
@@ -61,7 +69,9 @@ class CarForm(forms.ModelForm):
         }
     def __init__(self, *args, **kwargs) -> None:
         """
-        Инициализирует форму и убирает поле статуса для обычных пользователей.
+        Инициализирует форму и убирает поле статуса для обычных пользователей (продавцов).
+
+        Статус управляется только staff (или принудительно в BL).
         """
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)

@@ -5,11 +5,20 @@ from ...models import Car
 
 
 class Command(BaseCommand):
-    """Команда управления для очистки старых проданных автомобилей (используется в задании)."""
-    help = 'Удаляет объявления старше 1 года со статусом sold'
+    """
+    Management command для ручного запуска очистки старых проданных объявлений.
+
+    Используется вместе с периодической Celery-задачей cleanup_old_sold_cars.
+    """
+    help = 'Удаляет объявления автомобилей со статусом SOLD старше 365 дней'
 
     def handle(self, *args, **options) -> None:
-        """Выполняет очистку."""
-        old_date = timezone.now() - timedelta(days=365)
-        deleted = Car.objects.filter(status=Car.SOLD, created_at__lt=old_date).delete()
-        self.stdout.write(self.style.SUCCESS(f'Удалено {deleted[0]} старых объявлений'))
+        """Выполняет удаление старых SOLD-объявлений."""
+        cutoff = timezone.now() - timedelta(days=365)
+        qs = Car.objects.filter(status=Car.SOLD, created_at__lt=cutoff)
+        count = qs.count()
+        if count > 0:
+            qs.delete()
+            self.stdout.write(self.style.SUCCESS(f'Удалено {count} старых проданных объявлений'))
+        else:
+            self.stdout.write(self.style.WARNING('Старых проданных объявлений для удаления нет'))
