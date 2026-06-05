@@ -39,8 +39,12 @@ services:
     environment:
       - DEBUG=1
       - CELERY_BROKER_URL=redis://redis:6379/0
+      - EMAIL_HOST=mailhog
+      - EMAIL_PORT=1025
+      - EMAIL_USE_TLS=0
     depends_on:
       - redis
+      - mailhog
       - web
 
   celery-beat:
@@ -52,7 +56,11 @@ services:
     environment:
       - DEBUG=1
       - CELERY_BROKER_URL=redis://redis:6379/0
+      - EMAIL_HOST=mailhog
+      - EMAIL_PORT=1025
+      - EMAIL_USE_TLS=0
     depends_on:
       - redis
+      - mailhog
       - web
       - celery

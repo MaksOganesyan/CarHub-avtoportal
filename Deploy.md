@@ -76,6 +76,45 @@ docker-compose -f docker-compose.prod.yml logs -f celery-beat
 - Celery worker и beat работают отдельными сервисами (уже настроено).
 - Для писем в проде используй настоящий SMTP в `.env.prod` (Mailgun, Яндекс, Gmail и т.д.).
 
+### Демонстрация Celery на защите (5 доменных задач + периодическая)
+
+Есть специальная команда для быстрого показа **всех** Celery-задач:
+
+```powershell
+# 1. Подними инфраструктуру (гибрид: bare runserver + docker worker)
+docker-compose up -d redis mailhog celery celery-beat
+
+# 2. (опционально, но рекомендуется) наполни красивыми данными с фото
+python manage.py seed_cars
+
+# 3. В одном терминале следи за worker'ом
+docker-compose logs -f celery
+
+# 4. В другом терминале запускай демонстрацию
+python manage.py demo_celery
+```
+
+Команда `demo_celery` (core/management/commands/demo_celery.py) ставит в реальную очередь:
+- send_welcome_email
+- send_car_submitted_for_moderation
+- process_car_image (с PIL)
+- send_car_approved_notification
+- cleanup_old_sold_cars
+
+Письма прилетят в Mailhog (http://localhost:8025).
+
+Для чисто прод-стека:
+```powershell
+docker-compose -f docker-compose.prod.yml up -d --build
+docker-compose -f docker-compose.prod.yml exec web python manage.py demo_celery
+docker-compose -f docker-compose.prod.yml logs -f celery
+```
+
+Дополнительно на защите покажи:
+- В /admin/ раздел "Periodic tasks" — "Cleanup old sold cars daily" (зарегистрирована в core/apps.py через post_migrate).
+- `python manage.py clean_old_cars` (management command-компаньон).
+- В коде: все `.delay()` вызовы (views.py, api.py, serializers.py) + 5 функций в core/tasks.py.
+
 ## 5. Статика и медиа
 
 - `collectstatic` выполняется при сборке образа.
